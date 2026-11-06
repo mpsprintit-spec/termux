@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Patch pinned official Termux source with RA Terminal v0.3 single-screen UI."""
+"""Patch pinned official Termux source with RA Terminal v0.4 single-screen UI."""
 from pathlib import Path
 import argparse
 import shutil
@@ -13,13 +13,12 @@ args=parser.parse_args()
 repo=args.termux_repo.expanduser().resolve()
 activity=repo/'app/src/main/java/com/termux/app/TermuxActivity.java'
 manifest=repo/'app/src/main/AndroidManifest.xml'
-asset=repo/'app/src/main/assets/ra_background.html'
 classes=repo/'app/src/main/java/com/termux/app/ra'
 drawable=repo/'app/src/main/res/drawable/ra_launcher.xml'
 palette=repo/'terminal-emulator/src/main/java/com/termux/terminal/TerminalColorScheme.java'
 if not activity.is_file() or not manifest.is_file() or not palette.is_file() or not (repo/'app/build.gradle').is_file():
     raise SystemExit(f'ERROR: invalid Termux source tree: {repo}')
-for name in ('RaTerminalChrome.java','RaSystemHud.java','RaLogoView.java','ra_background.html','ra_launcher.xml'):
+for name in ('RaTerminalChrome.java','RaSystemHud.java','RaLogoView.java','RaSolarBackdropView.java','ra_launcher.xml'):
     source=root/'android'/name
     if not source.is_file():
         raise SystemExit(f'ERROR: missing RA Terminal source file: {source}')
@@ -90,13 +89,12 @@ if args.check_only:
 classes.mkdir(parents=True,exist_ok=True)
 asset.parent.mkdir(parents=True,exist_ok=True)
 drawable.parent.mkdir(parents=True,exist_ok=True)
-for filename in ('RaTerminalChrome.java','RaSystemHud.java','RaLogoView.java'):
+for filename in ('RaTerminalChrome.java','RaSystemHud.java','RaLogoView.java','RaSolarBackdropView.java'):
     shutil.copy2(root/'android'/filename,classes/filename)
-shutil.copy2(root/'android/ra_background.html',asset)
 shutil.copy2(root/'android/ra_launcher.xml',drawable)
 for original,text in ((activity,s),(manifest,m),(palette,q)):
     backup=original.with_suffix(original.suffix+'.ra-original')
     if not backup.exists():
         backup.write_text(original.read_text(encoding='utf-8'),encoding='utf-8')
     original.write_text(text,encoding='utf-8')
-print('SUCCESS: applied RA Terminal v0.3 patch to',repo)
+print('SUCCESS: applied RA Terminal v0.4 patch to',repo)

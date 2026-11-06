@@ -1,17 +1,11 @@
 package com.termux.app.ra;
 
-import android.annotation.SuppressLint;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
-import android.os.Build;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.WebChromeClient;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -22,10 +16,10 @@ import com.termux.view.TerminalView;
 
 /**
  * Single-Activity native Termux UI. Original TerminalView/PTY is not reimplemented.
- * The WebView is a decorative, noninteractive layer, not a browser or terminal.
+ * A native solar background is decorative and never intercepts terminal input.
  */
 public final class RaTerminalChrome {
-    private final WebView backdrop;
+    private final RaSolarBackdropView backdrop;
     private final RaSystemHud hud;
     private String animationMode="eco";
     private final TermuxActivity activity;
@@ -39,7 +33,6 @@ public final class RaTerminalChrome {
         return shape;
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
     public RaTerminalChrome(TermuxActivity activity, TerminalView terminal) {
         this.activity=activity;
         ViewGroup originalParent=(ViewGroup)terminal.getParent();
@@ -90,27 +83,12 @@ public final class RaTerminalChrome {
         perf.setOnClickListener(v -> {
             animationMode="eco".equals(animationMode)?"flow":("flow".equals(animationMode)?"off":"eco");
             perf.setText(animationMode.toUpperCase(java.util.Locale.US));
-            backdrop.evaluateJavascript("window.setRaPerformanceMode('"+animationMode+"')",null);
+            backdrop.setAnimationMode(animationMode);
         });
 
         FrameLayout scene=new FrameLayout(activity);
         shell.addView(scene,new LinearLayout.LayoutParams(-1,0,1));
-        backdrop=new WebView(activity);
-        backdrop.setBackgroundColor(Color.BLACK);
-        backdrop.setFocusable(false);backdrop.setFocusableInTouchMode(false);
-        backdrop.setClickable(false);
-        backdrop.setVerticalScrollBarEnabled(false);backdrop.setHorizontalScrollBarEnabled(false);
-        WebSettings settings=backdrop.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(false);
-        settings.setAllowFileAccess(true);
-        settings.setAllowContentAccess(false);
-        settings.setJavaScriptCanOpenWindowsAutomatically(false);
-        settings.setSupportMultipleWindows(false);
-        if (Build.VERSION.SDK_INT>=21) settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        backdrop.setWebChromeClient(new WebChromeClient());
-        backdrop.setWebViewClient(new WebViewClient());
-        backdrop.loadUrl("file:///android_asset/ra_background.html");
+        backdrop=new RaSolarBackdropView(activity);
         scene.addView(backdrop,new FrameLayout.LayoutParams(-1,-1));
 
         LinearLayout foreground=new LinearLayout(activity);
@@ -148,7 +126,7 @@ public final class RaTerminalChrome {
         TextView t=new TextView(activity);t.setText(s);t.setTextSize(size);t.setTextColor(color);
         t.setFontFeatureSettings("tnum");return t;
     }
-    public void resume(){ backdrop.onResume();hud.resume(); }
-    public void pause(){ hud.pause();backdrop.onPause(); }
-    public void destroy(){ hud.pause();backdrop.stopLoading();backdrop.loadUrl("about:blank");backdrop.destroy(); }
+    public void resume(){ backdrop.resume();hud.resume(); }
+    public void pause(){ hud.pause();backdrop.pause(); }
+    public void destroy(){ hud.pause();backdrop.release(); }
 }
