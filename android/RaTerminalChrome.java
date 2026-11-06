@@ -27,6 +27,7 @@ import com.termux.view.TerminalView;
 public final class RaTerminalChrome {
     private final WebView backdrop;
     private final RaSystemHud hud;
+    private String animationMode="eco";
     private final TermuxActivity activity;
 
     private static int dp(TermuxActivity a, float n) { return (int)(n*a.getResources().getDisplayMetrics().density+.5f); }
@@ -82,6 +83,15 @@ public final class RaTerminalChrome {
         status.setPadding(dp(activity,7),dp(activity,5),dp(activity,7),dp(activity,5));
         status.setBackground(bg(0xff0a1e27,0xff168aa7));
         header.addView(status);
+        TextView perf=text("ECO",9,0xff8beeff);
+        perf.setPadding(dp(activity,5),dp(activity,5),0,dp(activity,5));
+        header.addView(perf);
+        perf.setContentDescription("Change neon background animation performance");
+        perf.setOnClickListener(v -> {
+            animationMode="eco".equals(animationMode)?"flow":("flow".equals(animationMode)?"off":"eco");
+            perf.setText(animationMode.toUpperCase(java.util.Locale.US));
+            backdrop.evaluateJavascript("window.setRaPerformanceMode('"+animationMode+"')",null);
+        });
 
         FrameLayout scene=new FrameLayout(activity);
         shell.addView(scene,new LinearLayout.LayoutParams(-1,0,1));
@@ -104,18 +114,25 @@ public final class RaTerminalChrome {
         scene.addView(backdrop,new FrameLayout.LayoutParams(-1,-1));
 
         LinearLayout foreground=new LinearLayout(activity);
-        foreground.setOrientation(LinearLayout.HORIZONTAL);
+        final boolean compact=activity.getResources().getConfiguration().screenWidthDp<520;
+        foreground.setOrientation(compact?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
         scene.addView(foreground,new FrameLayout.LayoutParams(-1,-1));
 
         terminal.setBackgroundColor(Color.TRANSPARENT);
-        terminal.setLayoutParams(new LinearLayout.LayoutParams(0,-1,1));
-        foreground.addView(terminal);
-
         hud=new RaSystemHud(activity);
-        int width=dp(activity,112);
-        LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(width,-1);
-        hp.setMargins(dp(activity,2),dp(activity,7),dp(activity,5),dp(activity,7));
-        foreground.addView(hud,hp);
+        if(compact){
+            terminal.setLayoutParams(new LinearLayout.LayoutParams(-1,0,1));
+            foreground.addView(terminal);
+            LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,dp(activity,65));
+            hp.setMargins(dp(activity,4),0,dp(activity,4),dp(activity,2));
+            foreground.addView(hud,hp);
+        }else{
+            terminal.setLayoutParams(new LinearLayout.LayoutParams(0,-1,1));
+            foreground.addView(terminal);
+            LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(dp(activity,112),-1);
+            hp.setMargins(dp(activity,2),dp(activity,7),dp(activity,5),dp(activity,7));
+            foreground.addView(hud,hp);
+        }
 
         originalParent.addView(shell,originalIndex,outerParams);
         status.setContentDescription("Toggle live resource panels");

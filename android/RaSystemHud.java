@@ -38,7 +38,7 @@ public final class RaSystemHud extends View {
     private int cpuCount=0;
     private final Runnable ticker=new Runnable(){@Override public void run(){if(!running)return;sample();invalidate();handler.postDelayed(this,PERIOD);}};
 
-    public RaSystemHud(Context context){super(context);this.context=context;setLayerType(View.LAYER_TYPE_SOFTWARE,null);setContentDescription("Live CPU, memory, storage and network statistics");}
+    public RaSystemHud(Context context){super(context);this.context=context;setContentDescription("Live CPU, memory, storage and network statistics");}
     public void resume(){if(running)return;running=true;handler.post(ticker);}
     public void pause(){running=false;handler.removeCallbacks(ticker);}
     private float dp(float n){return getResources().getDisplayMetrics().density*n;}
@@ -117,7 +117,21 @@ public final class RaSystemHud extends View {
         }
     }
     @Override protected void onDraw(Canvas c){
-        super.onDraw(c);float w=getWidth(),h=getHeight(),gap=dp(6);if(w<dp(85)||h<=dp(140))return;
+        super.onDraw(c);float w=getWidth(),h=getHeight(),gap=dp(6);
+        if(w>h*1.7f && h>=dp(48)){
+            float cell=w/5f;
+            String[] labels={"APP CPU","RAM","STORAGE","NETWORK","APP PID"};
+            String[] values={pct(cpuPercent),pct(ramPercent),pct(diskPercent),speed(networkDown),String.valueOf(Process.myPid())};
+            for(int i=0;i<5;i++){
+                float left=cell*i+dp(1),right=cell*(i+1)-dp(1);
+                box(c,left,0,right,h-dp(2));
+                text(c,labels[i],left+dp(4),dp(16),i==2||i==3?7:8,0xff81bdd0,true);
+                text(c,values[i],left+dp(4),dp(37),i==3?8:10,0xff50eeff,true);
+                if(i==1||i==2)bar(c,left+dp(4),h-dp(13),cell-dp(10),(float)(i==1?ramPercent:diskPercent));
+            }
+            return;
+        }
+        if(w<dp(85)||h<=dp(140))return;
         float itemH=Math.min(dp(105),(h-gap*6)/5f);
         boolean tight=itemH<dp(81);
         float titleSize=tight?9:10;
@@ -128,7 +142,7 @@ public final class RaSystemHud extends View {
             box(c,0,top,w,bottom);
             String name,value,info;
             switch(i){
-                case 0:name=cpuWholeSystem?"CPU":"APP CPU";value=pct(cpuPercent);info=cpuWholeSystem?"All cores":"App / 1 core";break;
+                case 0:name=cpuWholeSystem?"CPU":"APP CPU";value=pct(cpuPercent);info=cpuWholeSystem?"All cores":"Per-core equiv.";break;
                 case 1:name="RAM";value=pct(ramPercent);info=gig(memUsed)+" used";break;
                 case 2:name="STORAGE";value=pct(diskPercent);info=gig(diskUsed)+" used";break;
                 case 3:name="NETWORK";value="LIVE";info="↓ "+speed(networkDown);break;
