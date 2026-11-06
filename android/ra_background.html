@@ -1,0 +1,37 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><style>
+html,body{background:#000;margin:0;width:100%;height:100%;overflow:hidden}canvas{position:fixed;inset:0;display:block;width:100%;height:100%}
+</style></head><body><canvas id="sky" aria-hidden="true"></canvas><script>
+'use strict';
+// Only this canvas animates. The native terminal, keyboard, logo and HUD never move.
+const canvas=document.getElementById('sky'),ctx=canvas.getContext('2d',{alpha:false});
+let W=1,H=1,dpr=1,clock=0,previous=0,active=true,slow=false;
+const particles=Array.from({length:75},(_,i)=>({x:Math.random(),y:Math.random(),r:.6+Math.random()*1.65,drift:.18+Math.random()*.58,phase:i*2.87}));
+function resize(){dpr=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
+window.addEventListener('resize',resize);resize();
+function dot(x,y,r,col,alpha){ctx.globalAlpha=alpha;ctx.shadowColor=col;ctx.shadowBlur=r*8;ctx.fillStyle=col;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.globalAlpha=1}
+function curve(y0,amp,rate,shift,col,alpha,lw,glow){ctx.beginPath();for(let x=-5;x<=W+5;x+=5){let y=y0+Math.sin(x*rate+shift)*amp+Math.sin(x*rate*.39-shift*.63)*amp*.37;if(x===-5)ctx.moveTo(x,y);else ctx.lineTo(x,y)}ctx.strokeStyle=col;ctx.globalAlpha=alpha;ctx.lineWidth=lw;ctx.shadowColor=col;ctx.shadowBlur=glow;ctx.stroke();ctx.shadowBlur=0;ctx.globalAlpha=1}
+function render(t){if(!active)return;requestAnimationFrame(render);if(t-previous<(slow?75:33))return;previous=t;clock=t*.001;ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+ctx.globalCompositeOperation='lighter';
+const pts=[];for(let i=0;i<25;i++){const x=W*(.025+(i*.327)%1.03)+Math.sin(clock*.14+i)*7;const y=H*(.008+(i*.137)%0.27)+Math.cos(clock*.12+i)*7;pts.push({x,y})}
+for(let i=0;i<pts.length;i++){for(let j=i+1;j<pts.length;j++){const dist=Math.hypot(pts[i].x-pts[j].x,pts[i].y-pts[j].y);if(dist<W*.26){ctx.strokeStyle='rgba(0,195,255,'+(.40*(1-dist/(W*.26))).toFixed(3)+')';ctx.lineWidth=.85;ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);ctx.stroke()}}dot(pts[i].x,pts[i].y,i%5===0?2.8:1.5,i%5===0?'#ac4bff':'#22deff',.78)}
+const levels=[.25,.47,.71,.88];
+for(let band=0;band<levels.length;band++){
+  let center=H*levels[band]+Math.sin(clock*.11+band)*H*.013;
+  let amp=H*(band===2?.027:.017);
+  for(let q=0;q<10;q++){
+    let col=(q+band)%4===0?'#b548ff':((q+band)%3===0?'#316dff':'#00dfff');
+    curve(center+q*2.5,amp+q*.9,.015+band*.002,clock*(.24+.04*band)+q*.17,col,.11+Math.max(0,6-q)*.034,.65,4);
+  }
+  curve(center+10,amp+.5,.014+band*.002,clock*(.24+.04*band)+.36,band%2?'#ed59ff':'#00f0ff',.73,2.0,17);
+  curve(center+12,amp+.5,.014+band*.002,clock*(.24+.04*band)+.37,'#99f5ff',.59,.8,5);
+}
+const origin=H*.72;
+for(let j=0;j<14;j++){let y=origin+j*H*.025;ctx.beginPath();for(let x=0;x<=W;x+=7){let yy=y+Math.sin(x*.016+clock*.24+j*.31)*H*.021+Math.cos(x*.006-clock*.15)*H*.011;if(x===0)ctx.moveTo(x,yy);else ctx.lineTo(x,yy)}ctx.strokeStyle=j%4===0?'rgba(171,64,255,.42)':'rgba(2,207,250,.25)';ctx.lineWidth=.85;ctx.stroke()}
+for(let k=0;k<23;k++){let x=k*W/22;ctx.beginPath();for(let y=origin-22;y<=H+6;y+=9){let px=x+Math.sin(y*.019+clock*.24+k)*9;if(y===origin-22)ctx.moveTo(px,y);else ctx.lineTo(px,y)}ctx.strokeStyle='rgba(0,191,255,.21)';ctx.lineWidth=.8;ctx.stroke()}
+for(const p of particles){let px=((p.x+clock*p.drift*.011)%1)*W,py=p.y*H+Math.sin(clock*.34+p.phase)*13;dot(px,py,p.r,p.phase%2?'#11dfff':'#a04bff',.32)}
+ctx.globalCompositeOperation='source-over';
+}
+requestAnimationFrame(render);
+document.addEventListener('visibilitychange',()=>{if(document.hidden){active=false}else if(!active){active=true;previous=0;requestAnimationFrame(render)}});
+window.addEventListener('message',e=>{if(e.data==='ra:lowpower')slow=true;if(e.data==='ra:normal')slow=false});
+</script></body></html>
