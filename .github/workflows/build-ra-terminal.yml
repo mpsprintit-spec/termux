@@ -35,11 +35,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
       - name: Install SDK/NDK
         shell: bash
         run: |
+          set -euo pipefail
+          echo "Using runner Android SDK: ${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          command -v sdkmanager
+          sdkmanager --version
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865'
       - name: Clone official pinned Termux source
