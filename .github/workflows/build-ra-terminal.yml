@@ -1,0 +1,69 @@
+name: Build RA Terminal APK
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TERMUX_PACKAGE_VARIANT: apt-android-7
+      TERMUX_SPLIT_APKS_FOR_DEBUG_BUILDS: '0'
+      TERMUX_APK_VERSION_TAG: ra-terminal-v0.2-debug
+    steps:
+      - name: Clone RA Terminal repository
+        uses: actions/checkout@v4
+      - name: Check required patch files
+        run: |
+          set -euo pipefail
+          for file in apply_to_termux.py android/RaTerminalChrome.java android/RaSystemHud.java android/RaLogoView.java android/ra_background.html; do
+            if test ! -s "$file"; then
+              echo "::error::Missing $file. Extract/upload the complete RA_Terminal_Build_Kit_v0_2.zip source into the repository first."
+              exit 1
+            fi
+          done
+          ls android/icons/mipmap*/ra_launcher*.png >/dev/null
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install SDK/NDK
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865'
+      - name: Clone official pinned Termux source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --quiet https://github.com/termux/termux-app.git termux-app
+          git -C termux-app checkout --quiet 8629e632fcb95da272221be327db653fb24befe9
+          test "$(git -C termux-app rev-parse HEAD)" = 8629e632fcb95da272221be327db653fb24befe9
+      - name: Validate and apply patch
+        run: |
+          python3 apply_to_termux.py termux-app --check-only
+          python3 apply_to_termux.py termux-app
+      - name: Build native Termux APK
+        working-directory: termux-app
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:assembleDebug --stacktrace
+      - name: Collect and verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="$(find termux-app/app/build/outputs/apk/debug -name '*universal.apk' -print -quit)"
+          test -n "$apk" && test -s "$apk"
+          mkdir -p dist
+          cp "$apk" dist/RA_Terminal_v0.2_universal_debug.apk
+          (cd dist && sha256sum RA_Terminal_v0.2_universal_debug.apk > SHA256SUMS.txt)
+      - name: Upload signed debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RA-Terminal-v0.2-APK
+          path: dist/*
+          if-no-files-found: error
