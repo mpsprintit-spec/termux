@@ -1,6 +1,12 @@
 name: Build RA Terminal APK
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'apply_to_termux.py'
+      - '.github/workflows/build-ra-terminal.yml'
 permissions:
   contents: read
 jobs:
@@ -23,7 +29,7 @@ jobs:
               exit 1
             fi
           done
-          ls android/icons/mipmap*/ra_launcher*.png >/dev/null
+          test -s android/ra_launcher.xml
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
