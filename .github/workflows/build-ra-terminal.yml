@@ -40,10 +40,11 @@ jobs:
         run: |
           set -euo pipefail
           echo "Using runner Android SDK: ${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          command -v sdkmanager
-          sdkmanager --version
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865'
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name sdkmanager | head -1)"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" --version
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;29.0.14206865'
       - name: Clone official pinned Termux source
         shell: bash
         run: |
