@@ -19,7 +19,7 @@ import com.termux.view.TerminalView;
  * A native solar background is decorative and never intercepts terminal input.
  */
 public final class RaTerminalChrome {
-    private final RaSolarBackdropView backdrop;
+    private RaSolarBackdropView backdrop;
     private final RaSystemHud hud;
     private String animationMode="eco";
     private final TermuxActivity activity;
