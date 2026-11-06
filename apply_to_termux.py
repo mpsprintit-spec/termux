@@ -87,7 +87,6 @@ if args.check_only:
     print('PASS: all Termux Activity and manifest source anchors are compatible.')
     sys.exit(0)
 classes.mkdir(parents=True,exist_ok=True)
-asset.parent.mkdir(parents=True,exist_ok=True)
 drawable.parent.mkdir(parents=True,exist_ok=True)
 for filename in ('RaTerminalChrome.java','RaSystemHud.java','RaLogoView.java','RaSolarBackdropView.java'):
     shutil.copy2(root/'android'/filename,classes/filename)
