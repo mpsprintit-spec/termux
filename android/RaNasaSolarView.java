@@ -40,6 +40,7 @@ public final class RaNasaSolarView extends FrameLayout {
     private final boolean[] prepared = new boolean[2];
     private final FrameLayout disk;
     private final View glow;
+    private final View edgeFade;
     private File media;
     private ReadyListener listener;
     private boolean resumed, hasPicture, transitioning, nextStarted, released;
@@ -89,7 +90,9 @@ public final class RaNasaSolarView extends FrameLayout {
             textures[i] = view;
             disk.addView(view, new LayoutParams(-1, -1));
         }
-        disk.addView(new EdgeFadeView(context), new LayoutParams(-1, -1));
+        edgeFade = new EdgeFadeView(context);
+        edgeFade.setVisibility(INVISIBLE);
+        disk.addView(edgeFade, new LayoutParams(-1, -1));
     }
 
     public void setReadyListener(ReadyListener callback) {
@@ -163,6 +166,7 @@ public final class RaNasaSolarView extends FrameLayout {
         if (hasPicture || released) return;
         hasPicture = true;
         glow.setVisibility(VISIBLE);
+        edgeFade.setVisibility(VISIBLE);
         textures[active].setAlpha(1f);
         if (listener != null) listener.onReady(true);
     }
@@ -174,6 +178,7 @@ public final class RaNasaSolarView extends FrameLayout {
             if (listener != null) listener.onReady(false);
         }
         glow.setVisibility(INVISIBLE);
+        edgeFade.setVisibility(INVISIBLE);
         for (TextureView v : textures) v.setAlpha(0f);
         removeCallbacks(ticker);
         for (int i = 0; i < 2; i++) releasePlayer(i);
