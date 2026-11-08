@@ -20,6 +20,7 @@ import com.termux.view.TerminalView;
  */
 public final class RaTerminalChrome {
     private RaSolarBackdropView backdrop;
+    private RaNasaSolarView nasaSolar;
     private final RaSystemHud hud;
     private String animationMode="eco";
     private final TermuxActivity activity;
@@ -84,12 +85,16 @@ public final class RaTerminalChrome {
             animationMode="eco".equals(animationMode)?"flow":("flow".equals(animationMode)?"off":"eco");
             perf.setText(animationMode.toUpperCase(java.util.Locale.US));
             backdrop.setAnimationMode(animationMode);
+            nasaSolar.setAnimationMode(animationMode);
         });
 
         FrameLayout scene=new FrameLayout(activity);
         shell.addView(scene,new LinearLayout.LayoutParams(-1,0,1));
         backdrop=new RaSolarBackdropView(activity);
         scene.addView(backdrop,new FrameLayout.LayoutParams(-1,-1));
+        nasaSolar = new RaNasaSolarView(activity);
+        nasaSolar.setReadyListener(ready -> backdrop.setVisibility(ready ? View.INVISIBLE : View.VISIBLE));
+        scene.addView(nasaSolar,new FrameLayout.LayoutParams(-1,-1));
 
         LinearLayout foreground=new LinearLayout(activity);
         final boolean compact=activity.getResources().getConfiguration().screenWidthDp<520;
@@ -126,7 +131,7 @@ public final class RaTerminalChrome {
         TextView t=new TextView(activity);t.setText(s);t.setTextSize(size);t.setTextColor(color);
         t.setFontFeatureSettings("tnum");return t;
     }
-    public void resume(){ backdrop.resume();hud.resume(); }
-    public void pause(){ hud.pause();backdrop.pause(); }
-    public void destroy(){ hud.pause();backdrop.release(); }
+    public void resume(){ backdrop.resume();nasaSolar.resume();hud.resume(); }
+    public void pause(){ hud.pause();nasaSolar.pause();backdrop.pause(); }
+    public void destroy(){ hud.pause();nasaSolar.release();backdrop.release(); }
 }

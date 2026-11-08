@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Patch pinned official Termux source with RA Terminal v0.4 single-screen UI."""
+"""Patch pinned official Termux source with RA Terminal v0.5 single-screen UI."""
 from pathlib import Path
 import argparse
 import shutil
@@ -18,7 +18,7 @@ drawable=repo/'app/src/main/res/drawable/ra_launcher.xml'
 palette=repo/'terminal-emulator/src/main/java/com/termux/terminal/TerminalColorScheme.java'
 if not activity.is_file() or not manifest.is_file() or not palette.is_file() or not (repo/'app/build.gradle').is_file():
     raise SystemExit(f'ERROR: invalid Termux source tree: {repo}')
-for name in ('RaTerminalChrome.java','RaSystemHud.java','RaLogoView.java','RaSolarBackdropView.java','ra_launcher.xml'):
+for name in ('RaTerminalChrome.java','RaSystemHud.java','RaLogoView.java','RaSolarBackdropView.java','RaNasaSolarView.java','ra_launcher.xml'):
     source=root/'android'/name
     if not source.is_file():
         raise SystemExit(f'ERROR: missing RA Terminal source file: {source}')
@@ -88,7 +88,7 @@ if args.check_only:
     sys.exit(0)
 classes.mkdir(parents=True,exist_ok=True)
 drawable.parent.mkdir(parents=True,exist_ok=True)
-for filename in ('RaTerminalChrome.java','RaSystemHud.java','RaLogoView.java','RaSolarBackdropView.java'):
+for filename in ('RaTerminalChrome.java','RaSystemHud.java','RaLogoView.java','RaSolarBackdropView.java','RaNasaSolarView.java'):
     shutil.copy2(root/'android'/filename,classes/filename)
 shutil.copy2(root/'android/ra_launcher.xml',drawable)
 for original,text in ((activity,s),(manifest,m),(palette,q)):
@@ -96,4 +96,4 @@ for original,text in ((activity,s),(manifest,m),(palette,q)):
     if not backup.exists():
         backup.write_text(original.read_text(encoding='utf-8'),encoding='utf-8')
     original.write_text(text,encoding='utf-8')
-print('SUCCESS: applied RA Terminal v0.4 patch to',repo)
+print('SUCCESS: applied RA Terminal v0.5 patch to',repo)
