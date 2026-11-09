@@ -73,7 +73,7 @@ end=m.find('>',start)
 block=m[start:end+1]
 if block.count('android:label="@string/application_name"')!=1:
     raise SystemExit('ERROR: missing activity label')
-block=block.replace('android:label="@string/application_name"','android:label="RA Terminal"',1)
+block=block.replace('android:label="@string/application_name"','android:label="ValTherOn Terminal"',1)
 m=m[:start]+block+m[end+1:]
 # Accent palette changes only default ANSI hues. User colors.properties remains supported.
 q=palette.read_text(encoding='utf-8')
