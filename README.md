@@ -3,7 +3,7 @@
 A minimal, hacker-style Android terminal built by **patching the official Termux
 application**, not by replacing it with a browser or a fake terminal emulator.
 
-## Design direction (v0.6, experimental)
+## Design direction (v0.6.1, native Android)
 
 The native UI follows the second approved reference design:
 
@@ -17,23 +17,21 @@ The native UI follows the second approved reference design:
   Termux extra-keys, Git, Go, and terminal applications remain in place.
 - The optional session drawer remains reachable using the header menu.
 
-The split-pane output in the *reference image* is a visual target and is **not
-yet implemented as a new native split feature** in this branch. Use `tmux`
-inside Termux for real split panes in the meantime. Smart autocomplete and
-command search also remain future work. Nothing in the UI fabricates terminal
-output or starts `htop` automatically.
-
 ## Features in this branch
 
 1. **Horizontal session tabs**: compact half-rounded tabs, no numbers, native scroll,
    tap-to-switch, long press to rename and **+** to create a real Termux session.
-2. **Split terminal**: top/bottom real interactive panes provided by the supported
-   `tmux` multiplexer in a freshly created Termux session. Open the header menu
-   and choose **Split terminal (tmux)**. If `tmux` is absent, the app offers to run
-   `pkg install tmux` in a fresh session after user confirmation. This avoids
-   injecting commands into a running editor or other process. Termux's PTY
-   and existing shell remain unchanged. This is **tmux-based, not two native Android
-   TerminalView panes**.
+2. **Live split terminal**: tap the small **▤** header control or select
+   **Split terminal + live htop** in the menu. A new Termux PTY opens two
+   interactive `tmux` panes: the **upper pane is a shell**, and the **lower pane
+   starts real `htop` automatically**, reading the accessible CPU, RAM and
+   process statistics from the Android device. The lower pane initially receives
+   58% of the terminal rows; tmux responds to keyboard/terminal resizing.
+   If `tmux` or `htop` is absent, the app asks before installing the missing
+   packages via `pkg` in a fresh session. No commands are injected into other
+   sessions. If `htop` quits, the lower pane becomes a shell instead of
+   disappearing. This is a real **tmux-based** split; it is not two separate
+   native Android `TerminalView` widgets or a fake dashboard.
 3. **Command autocomplete**: on-demand completion palette against the real
    executable names in the current Termux prefix, plus shell commands. Filtering
    is live; inserting a selected suggestion sends **no Enter key**. Native Bash,
@@ -67,7 +65,7 @@ Pinned upstream revision: `8629e632fcb95da272221be327db653fb24befe9`.
 The GitHub Actions workflow `Build ValTherOn Terminal APK` validates and
 applies the patch, compiles the native Java sources, then builds a **real
 Termux debug APK with verified official bootstrap archives**. It publishes
-`ValTherOn-Terminal-v0.6-APK` with SHA-256 checksums if and only if all steps
+`ValTherOn-Terminal-v0.6.1-APK` with SHA-256 checksums if and only if all steps
 succeed. CI does not prove device-specific Android runtime compatibility.
 
 A valid APK requires a successful `assembleDebug`, complete bootstrap
@@ -81,6 +79,14 @@ keyboard/sessions/tmux/monitoring before any production roll-out.
   with another key. Do not uninstall your working Termux or delete HOME to
   test a build.
 - The project does not touch Horizon's repository.
-- The v0.6 changes are confined to a draft feature branch until verified.
+- The changes remain on a feature branch until installation and runtime testing.
 - Command palette is intentionally *on-demand* rather than intercepting
   and rewriting arbitrary shell input or full-screen app keystrokes.
+
+## Visual and runtime limits
+
+The previous example screenshot was a design mockup, not a real application
+capture. The actual `htop` appearance varies with phone screen width,
+keyboard visibility, `htop` version and Android restrictions on process/CPU
+metrics. A successful APK build does not establish that everything works on the
+target phone; verify it on a compatible installation before replacing data.
