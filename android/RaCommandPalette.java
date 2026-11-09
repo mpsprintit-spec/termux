@@ -16,6 +16,7 @@ import android.widget.TextView;
 import com.termux.app.TermuxActivity;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.terminal.TerminalSession;
+import com.termux.terminal.TerminalEmulator;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -45,6 +46,10 @@ public final class RaCommandPalette {
         TerminalSession session = activity.getCurrentSession();
         if (session == null) return;
 
+        // Read the visible cursor token, not key events or guessed shell state.
+        // Completion inserts only the missing suffix of the token actually on screen.
+        final String existingWord = completion ? cursorWord(session) : "";
+
         LinearLayout content = new LinearLayout(activity);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setBackgroundColor(BG);
@@ -56,10 +61,16 @@ public final class RaCommandPalette {
         query.setHintTextColor(0xff8995a6);
         query.setTextSize(15);
         query.setHint(completion ? "Command prefix, e.g. git, go..." : "Search command history");
+        if (completion && !existingWord.isEmpty()) {
+            query.setText(existingWord);
+            query.setSelection(query.length());
+        }
         content.addView(query, new LinearLayout.LayoutParams(-1, dp(48)));
 
         TextView guide = new TextView(activity);
-        guide.setText("Tap a result to insert it into the current terminal; Enter is NOT sent.");
+        guide.setText(completion
+            ? "Insert the missing suffix only. No Enter is sent."
+            : "Insert the selected command only. No Enter is sent.");
         guide.setTextColor(0xffa0acbb);
         guide.setTextSize(12);
         guide.setPadding(0, dp(6), 0, dp(7));
@@ -82,7 +93,7 @@ public final class RaCommandPalette {
             }
         };
         list.setAdapter(adapter);
-        refresh(adapter, original, "", completion);
+        refresh(adapter, original, query.getText().toString(), completion);
 
         query.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -100,13 +111,38 @@ public final class RaCommandPalette {
         list.setOnItemClickListener((parent, view, position, id) -> {
             String selected = adapter.getItem(position);
             if (selected == null || !session.isRunning()) return;
-            // Insert text only, no return key, and no shell execution.
-            byte[] bytes = selected.getBytes(StandardCharsets.UTF_8);
+            // Insert only a completion suffix when a partial token already exists.
+            // Do not silently erase the user's current shell command.
+            String insertion = selected;
+            if (completion && !existingWord.isEmpty()) {
+                if (!selected.startsWith(existingWord)) {
+                    activity.showToast("Completion must start with the existing terminal prefix.", false);
+                    return;
+                }
+                insertion = selected.substring(existingWord.length());
+            }
+            byte[] bytes = insertion.getBytes(StandardCharsets.UTF_8);
             session.write(bytes, 0, bytes.length);
             dialog.dismiss();
             activity.getTerminalView().requestFocus();
         });
         dialog.show();
+    }
+
+    private static String cursorWord(TerminalSession session) {
+        try {
+            TerminalEmulator em = session.getEmulator();
+            if (em == null || em.getCursorCol() < 1) return "";
+            int row = em.getCursorRow();
+            int lastCol = em.getCursorCol() - 1;
+            String before = em.getScreen().getSelectedText(0, row, lastCol, row, false);
+            int split = Math.max(before.lastIndexOf(' '), before.lastIndexOf('\\t'));
+            String word = before.substring(split + 1).trim();
+            // Keep this feature conservative: do not complete arbitrary control sequences.
+            return word.matches("[a-zA-Z0-9_./-]{1,64}") ? word : "";
+        } catch (Exception ignored) {
+            return "";
+        }
     }
 
     private static void refresh(ArrayAdapter<String> adapter, List<String> source,
