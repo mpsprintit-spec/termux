@@ -74,6 +74,22 @@ jobs:
             printf '\\nnetworkTimeout=180000\\n' >> "$props"
           fi
           grep '^networkTimeout=' "$props"
+      - name: Fetch Gradle distribution with network retry
+        working-directory: termux-app
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          for attempt in 1 2 3 4; do
+            if ./gradlew --version; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 4 ]; then
+              echo "Gradle distribution unavailable (attempt $attempt); retrying."
+              sleep "$((attempt * 15))"
+            fi
+          done
+          exit 1
       - name: Compile native UI independently of bootstrap download
         working-directory: termux-app
         run: |
