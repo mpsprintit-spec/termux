@@ -1,4 +1,4 @@
-name: Build RA Terminal APK
+name: Build ValTherOn Terminal APK
 on:
   workflow_dispatch:
   pull_request:
@@ -6,14 +6,12 @@ on:
     paths:
       - 'android/**'
       - 'apply_to_termux.py'
-      - 'install_nasa_solar.sh'
       - '.github/workflows/build-ra-terminal.yml'
   push:
     branches: [main]
     paths:
       - 'android/**'
       - 'apply_to_termux.py'
-      - 'install_nasa_solar.sh'
       - '.github/workflows/build-ra-terminal.yml'
 permissions:
   contents: read
@@ -24,16 +22,16 @@ jobs:
     env:
       TERMUX_PACKAGE_VARIANT: apt-android-7
       TERMUX_SPLIT_APKS_FOR_DEBUG_BUILDS: '0'
-      TERMUX_APK_VERSION_TAG: ra-terminal-v0.5-debug
+      TERMUX_APK_VERSION_TAG: valtheron-v0.6-debug
     steps:
       - name: Clone RA Terminal repository
         uses: actions/checkout@v4
       - name: Check required patch files
         run: |
           set -euo pipefail
-          for file in apply_to_termux.py android/RaTerminalChrome.java android/RaSystemHud.java android/RaLogoView.java android/RaSolarBackdropView.java android/RaNasaSolarView.java; do
+          for file in apply_to_termux.py android/RaTerminalChrome.java android/RaSystemHud.java android/RaSessionTabsView.java; do
             if test ! -s "$file"; then
-              echo "::error::Missing $file. Extract/upload the complete repository RA Terminal v0.4 source into the repository first."
+              echo "::error::Missing required ValTherOn native UI source $file."
               exit 1
             fi
           done
@@ -76,11 +74,11 @@ jobs:
           apk="$(find termux-app/app/build/outputs/apk/debug -name '*universal.apk' -print -quit)"
           test -n "$apk" && test -s "$apk"
           mkdir -p dist
-          cp "$apk" dist/RA_Terminal_v0.5_universal_debug.apk
-          (cd dist && sha256sum RA_Terminal_v0.5_universal_debug.apk > SHA256SUMS.txt)
+          cp "$apk" dist/ValTherOn_Terminal_v0.6_universal_debug.apk
+          (cd dist && sha256sum ValTherOn_Terminal_v0.6_universal_debug.apk > SHA256SUMS.txt)
       - name: Upload signed debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: RA-Terminal-v0.5-NASA-APK
+          name: ValTherOn-Terminal-v0.6-APK
           path: dist/*
           if-no-files-found: error
