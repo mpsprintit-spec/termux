@@ -68,12 +68,20 @@ jobs:
         run: |
           set -euo pipefail
           props=gradle/wrapper/gradle-wrapper.properties
+          # Official Gradle CDN avoids an extra services.gradle.org redirect.
+          sed -i 's#services.gradle.org#downloads.gradle.org#g' "$props"
           if grep -q '^networkTimeout=' "$props"; then
             sed -i 's/^networkTimeout=.*/networkTimeout=180000/' "$props"
           else
             printf '\\nnetworkTimeout=180000\\n' >> "$props"
           fi
           grep '^networkTimeout=' "$props"
+      - name: Restore verified Gradle wrapper cache
+        id: gradle-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.gradle/wrapper/dists
+          key: valtheron-gradle-9.2.1-linux-v1
       - name: Fetch Gradle distribution with network retry
         working-directory: termux-app
         shell: bash
@@ -90,6 +98,12 @@ jobs:
             fi
           done
           exit 1
+      - name: Save Gradle wrapper cache after successful download
+        if: steps.gradle-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.gradle/wrapper/dists
+          key: valtheron-gradle-9.2.1-linux-v1
       - name: Fetch checksum-verified official Termux bootstrap archives
         working-directory: termux-app
         shell: bash
