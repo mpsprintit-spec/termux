@@ -6,6 +6,7 @@ import android.graphics.Typeface;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import androidx.drawerlayout.widget.DrawerLayout;
@@ -71,8 +72,22 @@ public final class RaTerminalChrome {
         more.setContentDescription("More Termux options");
         header.addView(more, new LinearLayout.LayoutParams(dp(37), -1));
         more.setOnClickListener(v -> {
-            DrawerLayout drawer = activity.findViewById(R.id.drawer_layout);
-            if (drawer != null) drawer.openDrawer(Gravity.LEFT);
+            PopupMenu menu = new PopupMenu(activity, more);
+            menu.getMenu().add(0, 1, 0, "Split terminal (tmux)");
+            menu.getMenu().add(0, 2, 1, "Command autocomplete");
+            menu.getMenu().add(0, 3, 2, "Command search");
+            menu.getMenu().add(0, 4, 3, "Termux sessions");
+            menu.setOnMenuItemClickListener(item -> {
+                if (item.getItemId() == 1) new RaSplitLauncher(activity).launch();
+                else if (item.getItemId() == 2) new RaCommandPalette(activity).show(true);
+                else if (item.getItemId() == 3) new RaCommandPalette(activity).show(false);
+                else if (item.getItemId() == 4) {
+                    DrawerLayout drawer = activity.findViewById(R.id.drawer_layout);
+                    if (drawer != null) drawer.openDrawer(Gravity.LEFT);
+                }
+                return true;
+            });
+            menu.show();
         });
 
         tabs = new RaSessionTabsView(activity);
