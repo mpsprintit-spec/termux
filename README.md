@@ -23,37 +23,64 @@ inside Termux for real split panes in the meantime. Smart autocomplete and
 command search also remain future work. Nothing in the UI fabricates terminal
 output or starts `htop` automatically.
 
+## Features in this branch
+
+1. **Horizontal session tabs**: compact half-rounded tabs, no numbers, native scroll,
+   tap-to-switch, long press to rename and **+** to create a real Termux session.
+2. **Split terminal**: top/bottom real interactive panes provided by the supported
+   `tmux` multiplexer in a freshly created Termux session. Open the header menu
+   and choose **Split terminal (tmux)**. If `tmux` is absent, the app offers to run
+   `pkg install tmux` in a fresh session after user confirmation. This avoids
+   injecting commands into a running editor or other process. Termux's PTY
+   and existing shell remain unchanged. This is **tmux-based, not two native Android
+   TerminalView panes**.
+3. **Command autocomplete**: on-demand completion palette against the real
+   executable names in the current Termux prefix, plus shell commands. Filtering
+   is live; inserting a selected suggestion sends **no Enter key**. Native Bash,
+   Fish, and Zsh completion remain available via the Termux extra-key Tab.
+4. **Command search**: case-insensitive search of available Bash, Zsh, or Fish
+   history files. The result is inserted without running it; history with
+   common sensitive-key patterns is excluded. Existing command buffers are not
+   silently reset or rewritten.
+5. **Performance monitor**: CPU/app CPU and RAM in the header; tap for more
+   real device metrics, showing unavailable readings as unavailable instead of
+   invented values.
+
+All optional tools are accessible from the small ⋮ menu; existing
+Termux extra keys, Android keyboard, drawer, shell packages, and terminal
+emulation continue to use the original upstream implementation.
+
 ## Native components
 
-- `android/RaTerminalChrome.java`: simple header / session strip / original terminal.
-- `android/RaSessionTabsView.java`: native Android scrollable session tabs.
-- `android/RaSystemHud.java`: live device stats (when available).
-- `apply_to_termux.py`: applies the patch to the pinned upstream source,
-  including session-change notifications, without rebuilding the terminal engine.
+- `android/RaTerminalChrome.java`: header, menu, native tabs, and original terminal.
+- `android/RaSessionTabsView.java`: real horizontally scrolling Termux sessions.
+- `android/RaSplitLauncher.java`: isolated fresh PTY + tmux split.
+- `android/RaCommandPalette.java`: command lookup and autocomplete.
+- `android/RaSystemHud.java`: genuine Android metrics.
+- `apply_to_termux.py`: stable upstream source patch and session-change notifications.
+- `android/ra_launcher.xml`: minimal terminal-prompt launcher mark.
 
-The pinned upstream `termux-app` revision is
-`8629e632fcb95da272221be327db653fb24befe9`.
+Pinned upstream revision: `8629e632fcb95da272221be327db653fb24befe9`.
 
-## Build
+## Build and test
 
-Run GitHub Actions workflow `Build ValTherOn Terminal APK` on the feature
-branch (or its pull request). It checks out the pinned Termux source, validates
-the source anchors, applies the custom UI patch, compiles a debug Android APK,
-and publishes an artifact named `ValTherOn-Terminal-v0.6-APK`.
+The GitHub Actions workflow `Build ValTherOn Terminal APK` validates and
+applies the patch, compiles the native Java sources, then builds a **real
+Termux debug APK with verified official bootstrap archives**. It publishes
+`ValTherOn-Terminal-v0.6-APK` with SHA-256 checksums if and only if all steps
+succeed. CI does not prove device-specific Android runtime compatibility.
 
-The build artifact and SHA256 checksums should only be treated as usable once
-the GitHub Actions build has succeeded. Even a successful build is not a
-substitute for testing on the target Android device.
+A valid APK requires a successful `assembleDebug`, complete bootstrap
+downloads, correct signature, verified SHA256, and manual device testing of
+keyboard/sessions/tmux/monitoring before any production roll-out.
 
-## Safety
+## Important install/safety notes
 
-**Do not uninstall or overwrite an existing Termux installation to test this.**
-
-The APK currently uses the original Termux package identity and a
-non-production debug signing key. Installing it over another Termux-signed
-variant can fail, or require destructive actions. Keep your current HOME,
-bootstrap, and repositories backed up. Do not alter Android package identity
-without a dedicated bootstrap/package-compatibility migration.
-
-The repository's `main` branch remains at RA Terminal v0.5 until this change
-is reviewed and validated. This feature branch is deliberately isolated.
+- The app retains the original Termux package ID and the pinned Termux
+  debug key. It may **conflict with existing Termux installations** signed
+  with another key. Do not uninstall your working Termux or delete HOME to
+  test a build.
+- The project does not touch Horizon's repository.
+- The v0.6 changes are confined to a draft feature branch until verified.
+- Command palette is intentionally *on-demand* rather than intercepting
+  and rewriting arbitrary shell input or full-screen app keystrokes.
