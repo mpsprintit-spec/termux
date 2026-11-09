@@ -62,6 +62,18 @@ jobs:
         run: |
           python3 apply_to_termux.py termux-app --check-only
           python3 apply_to_termux.py termux-app
+      - name: Allow larger Gradle wrapper download window
+        working-directory: termux-app
+        shell: bash
+        run: |
+          set -euo pipefail
+          props=gradle/wrapper/gradle-wrapper.properties
+          if grep -q '^networkTimeout=' "$props"; then
+            sed -i 's/^networkTimeout=.*/networkTimeout=180000/' "$props"
+          else
+            printf '\\nnetworkTimeout=180000\\n' >> "$props"
+          fi
+          grep '^networkTimeout=' "$props"
       - name: Build native Termux APK
         working-directory: termux-app
         run: |
