@@ -6,6 +6,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -69,8 +70,17 @@ public final class RaCommandPalette {
         content.addView(list, new LinearLayout.LayoutParams(-1, dp(280)));
 
         List<String> original = completion ? loadExecutableNames() : loadHistory();
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-            activity, android.R.layout.simple_list_item_1, new ArrayList<String>());
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(
+            activity, android.R.layout.simple_list_item_1, new ArrayList<String>()) {
+            @Override public View getView(int position, View convertView, ViewGroup parent) {
+                TextView row = (TextView) super.getView(position, convertView, parent);
+                row.setTextColor(FG);
+                row.setTextSize(14);
+                row.setBackgroundColor(BG);
+                row.setPadding(dp(10), dp(4), dp(6), dp(4));
+                return row;
+            }
+        };
         list.setAdapter(adapter);
         refresh(adapter, original, "", completion);
 
