@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Patch pinned official Termux source with RA Terminal v0.5 single-screen UI."""
+"""Patch pinned official Termux source with native ValTherOn compact tabs."""
 from pathlib import Path
 import argparse
 import shutil
@@ -16,9 +16,10 @@ manifest=repo/'app/src/main/AndroidManifest.xml'
 classes=repo/'app/src/main/java/com/termux/app/ra'
 drawable=repo/'app/src/main/res/drawable/ra_launcher.xml'
 palette=repo/'terminal-emulator/src/main/java/com/termux/terminal/TerminalColorScheme.java'
-if not activity.is_file() or not manifest.is_file() or not palette.is_file() or not (repo/'app/build.gradle').is_file():
+session_client=repo/'app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java'
+if not activity.is_file() or not manifest.is_file() or not palette.is_file() or not session_client.is_file() or not (repo/'app/build.gradle').is_file():
     raise SystemExit(f'ERROR: invalid Termux source tree: {repo}')
-for name in ('RaTerminalChrome.java','RaSystemHud.java','RaLogoView.java','RaSolarBackdropView.java','RaNasaSolarView.java','ra_launcher.xml'):
+for name in ('RaTerminalChrome.java','RaSystemHud.java','RaSessionTabsView.java','ra_launcher.xml'):
     source=root/'android'/name
     if not source.is_file():
         raise SystemExit(f'ERROR: missing RA Terminal source file: {source}')
@@ -40,6 +41,12 @@ insertions=[
      '        if (mRaChrome != null) mRaChrome.pause();\n        super.onStop();'),
     ('        super.onDestroy();',
      '        if (mRaChrome != null) { mRaChrome.destroy(); mRaChrome = null; }\n        super.onDestroy();'),
+    ('        mTermuxService.setTermuxTerminalSessionClient(mTermuxTerminalSessionActivityClient);',
+     '        mTermuxService.setTermuxTerminalSessionClient(mTermuxTerminalSessionActivityClient);\n        refreshValTherOnTabs();'),
+    ('    public void termuxSessionListNotifyUpdated() {',
+     '    public void refreshValTherOnTabs() { if (mRaChrome != null) mRaChrome.refreshTabs(); }\n\n    public void termuxSessionListNotifyUpdated() {'),
+    ('        mTermuxSessionListViewController.notifyDataSetChanged();',
+     '        mTermuxSessionListViewController.notifyDataSetChanged();\n        refreshValTherOnTabs();'),
 ]
 for old,new in insertions:
     if s.count(old)!=1:
@@ -53,7 +60,7 @@ block=m[start:end+1]
 replacements=[
     ('android:icon="@mipmap/ic_launcher"','android:icon="@drawable/ra_launcher"'),
     ('android:roundIcon="@mipmap/ic_launcher_round"','android:roundIcon="@drawable/ra_launcher"'),
-    ('android:label="@string/application_name"','android:label="RA Terminal"'),
+    ('android:label="@string/application_name"','android:label="ValTherOn Terminal"'),
 ]
 for old,new in replacements:
     if block.count(old)!=1:
@@ -83,17 +90,22 @@ palette_edits=[
 for old,new in palette_edits:
     if q.count(old)!=1: raise SystemExit(f'ERROR: missing palette anchor {old}')
     q=q.replace(old,new,1)
+client_text=session_client.read_text(encoding='utf-8')
+session_anchor='        checkAndScrollToSession(session);\n        updateBackgroundColor();'
+if client_text.count(session_anchor)!=1:
+    raise SystemExit('ERROR: Termux session switch anchor has changed upstream')
+client_text=client_text.replace(session_anchor,session_anchor+'\n        mActivity.refreshValTherOnTabs();',1)
 if args.check_only:
-    print('PASS: all Termux Activity and manifest source anchors are compatible.')
+    print('PASS: Termux Activity, session-client, and manifest source anchors are compatible.')
     sys.exit(0)
 classes.mkdir(parents=True,exist_ok=True)
 drawable.parent.mkdir(parents=True,exist_ok=True)
-for filename in ('RaTerminalChrome.java','RaSystemHud.java','RaLogoView.java','RaSolarBackdropView.java','RaNasaSolarView.java'):
+for filename in ('RaTerminalChrome.java','RaSystemHud.java','RaSessionTabsView.java'):
     shutil.copy2(root/'android'/filename,classes/filename)
 shutil.copy2(root/'android/ra_launcher.xml',drawable)
-for original,text in ((activity,s),(manifest,m),(palette,q)):
+for original,text in ((activity,s),(manifest,m),(palette,q),(session_client,client_text)):
     backup=original.with_suffix(original.suffix+'.ra-original')
     if not backup.exists():
         backup.write_text(original.read_text(encoding='utf-8'),encoding='utf-8')
     original.write_text(text,encoding='utf-8')
-print('SUCCESS: applied RA Terminal v0.5 patch to',repo)
+print('SUCCESS: applied ValTherOn compact-tabs patch to',repo)
