@@ -17,7 +17,8 @@ classes=repo/'app/src/main/java/com/termux/app/ra'
 drawable=repo/'app/src/main/res/drawable/ra_launcher.xml'
 palette=repo/'terminal-emulator/src/main/java/com/termux/terminal/TerminalColorScheme.java'
 session_client=repo/'app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java'
-if not activity.is_file() or not manifest.is_file() or not palette.is_file() or not session_client.is_file() or not (repo/'app/build.gradle').is_file():
+emulator=repo/'terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java'
+if not activity.is_file() or not manifest.is_file() or not palette.is_file() or not session_client.is_file() or not emulator.is_file() or not (repo/'app/build.gradle').is_file():
     raise SystemExit(f'ERROR: invalid Termux source tree: {repo}')
 for name in ('RaTerminalChrome.java','RaSystemHud.java','RaSessionTabsView.java','RaCommandPalette.java','RaSplitLauncher.java','ra_launcher.xml'):
     source=root/'android'/name
@@ -95,15 +96,41 @@ session_anchor='        checkAndScrollToSession(session);\n        updateBackgro
 if client_text.count(session_anchor)!=1:
     raise SystemExit('ERROR: Termux session switch anchor has changed upstream')
 client_text=client_text.replace(session_anchor,session_anchor+'\n        mActivity.refreshValTherOnTabs();',1)
+# Terminal-emitted OSC 52 clipboard writes are disabled: users should never
+# lose their Android clipboard due to arbitrary shell/program output. Explicit
+# selection-menu Copy and Paste retain their original Termux implementation.
+osc52_from='''            case 52: // Manipulate Selection Data. Skip the optional first selection parameter(s).
+                int startIndex = textParameter.indexOf(";") + 1;
+                try {
+                    String clipboardText = new String(Base64.decode(textParameter.substring(startIndex), Base64.DEFAULT), StandardCharsets.UTF_8);
+                    mSession.onCopyTextToClipboard(clipboardText);
+                } catch (Exception e) {
+                    Logger.logError(mClient, LOG_TAG, "OSC Manipulate selection, invalid string '" + textParameter + "'");
+                }
+                break;'''
+osc52_to='''            case 52: // ValTherOn: reject unsolicited terminal-output clipboard writes.
+                // Clipboard copy is allowed only through explicit UI Copy actions.
+                // OSC 52 can be emitted by untrusted programs, logs, remote shells
+                // and even a printed file; silently changing clipboard is unsafe.
+                break;'''
+e=emulator.read_text(encoding='utf-8')
+if e.count(osc52_from)!=1:
+    raise SystemExit('ERROR: Termux OSC 52 clipboard handler changed upstream')
+e=e.replace(osc52_from,osc52_to,1)
+# Retain manual copy from the original selection controller; do not change it.
+selection=repo/'terminal-view/src/main/java/com/termux/view/textselection/TextSelectionCursorController.java'
+if not selection.is_file() or 'terminalView.mTermSession.onCopyTextToClipboard(selectedText);' not in selection.read_text(encoding='utf-8'):
+    raise SystemExit('ERROR: explicit Copy action missing upstream')
+
 if args.check_only:
-    print('PASS: Termux Activity, session-client, and manifest source anchors are compatible.')
+    print('PASS: Termux source anchors, OSC 52 clipboard guard, and manual copy compatibility are valid.')
     sys.exit(0)
 classes.mkdir(parents=True,exist_ok=True)
 drawable.parent.mkdir(parents=True,exist_ok=True)
 for filename in ('RaTerminalChrome.java','RaSystemHud.java','RaSessionTabsView.java','RaCommandPalette.java','RaSplitLauncher.java'):
     shutil.copy2(root/'android'/filename,classes/filename)
 shutil.copy2(root/'android/ra_launcher.xml',drawable)
-for original,text in ((activity,s),(manifest,m),(palette,q),(session_client,client_text)):
+for original,text in ((activity,s),(manifest,m),(palette,q),(session_client,client_text),(emulator,e)):
     backup=original.with_suffix(original.suffix+'.ra-original')
     if not backup.exists():
         backup.write_text(original.read_text(encoding='utf-8'),encoding='utf-8')
