@@ -94,7 +94,7 @@ jobs:
         working-directory: termux-app
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :app:compileDebugJavaWithJavac --stacktrace
+          ./gradlew --no-daemon :app:compileDebugJavaWithJavac -x :app:downloadBootstraps --stacktrace
       - name: Build native Termux APK with bounded bootstrap retry
         working-directory: termux-app
         shell: bash
