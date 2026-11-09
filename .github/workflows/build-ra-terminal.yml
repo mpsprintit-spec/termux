@@ -29,7 +29,7 @@ jobs:
       - name: Check required patch files
         run: |
           set -euo pipefail
-          for file in apply_to_termux.py android/RaTerminalChrome.java android/RaSystemHud.java android/RaSessionTabsView.java; do
+          for file in apply_to_termux.py android/RaTerminalChrome.java android/RaSystemHud.java android/RaSessionTabsView.java android/RaCommandPalette.java android/RaSplitLauncher.java; do
             if test ! -s "$file"; then
               echo "::error::Missing required ValTherOn native UI source $file."
               exit 1
