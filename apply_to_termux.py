@@ -19,7 +19,7 @@ palette=repo/'terminal-emulator/src/main/java/com/termux/terminal/TerminalColorS
 session_client=repo/'app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java'
 if not activity.is_file() or not manifest.is_file() or not palette.is_file() or not session_client.is_file() or not (repo/'app/build.gradle').is_file():
     raise SystemExit(f'ERROR: invalid Termux source tree: {repo}')
-for name in ('RaTerminalChrome.java','RaSystemHud.java','RaSessionTabsView.java','ra_launcher.xml'):
+for name in ('RaTerminalChrome.java','RaSystemHud.java','RaSessionTabsView.java','RaCommandPalette.java','RaSplitLauncher.java','ra_launcher.xml'):
     source=root/'android'/name
     if not source.is_file():
         raise SystemExit(f'ERROR: missing RA Terminal source file: {source}')
@@ -100,7 +100,7 @@ if args.check_only:
     sys.exit(0)
 classes.mkdir(parents=True,exist_ok=True)
 drawable.parent.mkdir(parents=True,exist_ok=True)
-for filename in ('RaTerminalChrome.java','RaSystemHud.java','RaSessionTabsView.java'):
+for filename in ('RaTerminalChrome.java','RaSystemHud.java','RaSessionTabsView.java','RaCommandPalette.java','RaSplitLauncher.java'):
     shutil.copy2(root/'android'/filename,classes/filename)
 shutil.copy2(root/'android/ra_launcher.xml',drawable)
 for original,text in ((activity,s),(manifest,m),(palette,q),(session_client,client_text)):
