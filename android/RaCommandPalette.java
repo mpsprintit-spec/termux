@@ -136,7 +136,7 @@ public final class RaCommandPalette {
             int row = em.getCursorRow();
             int lastCol = em.getCursorCol() - 1;
             String before = em.getScreen().getSelectedText(0, row, lastCol, row, false);
-            int split = Math.max(before.lastIndexOf(' '), before.lastIndexOf('\\t'));
+            int split = Math.max(before.lastIndexOf(' '), before.lastIndexOf('\t'));
             String word = before.substring(split + 1).trim();
             // Keep this feature conservative: do not complete arbitrary control sequences.
             return word.matches("[a-zA-Z0-9_./-]{1,64}") ? word : "";
