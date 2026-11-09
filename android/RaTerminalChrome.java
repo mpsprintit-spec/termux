@@ -67,13 +67,20 @@ public final class RaTerminalChrome {
         status.setContentDescription("Live performance; tap for detailed monitoring");
         header.addView(status, new LinearLayout.LayoutParams(-2, -1));
 
+        // One-tap split monitor control: makes the htop pane discoverable.
+        TextView split = label("▤", 23, 0xff85bcdf);
+        split.setGravity(Gravity.CENTER);
+        split.setContentDescription("Open split terminal with live htop monitor");
+        header.addView(split, new LinearLayout.LayoutParams(dp(36), -1));
+        split.setOnClickListener(v -> new RaSplitLauncher(activity).launch());
+
         TextView more = label("⋮", 24, 0xff96a4b5);
         more.setGravity(Gravity.CENTER);
         more.setContentDescription("More Termux options");
         header.addView(more, new LinearLayout.LayoutParams(dp(37), -1));
         more.setOnClickListener(v -> {
             PopupMenu menu = new PopupMenu(activity, more);
-            menu.getMenu().add(0, 1, 0, "Split terminal (tmux)");
+            menu.getMenu().add(0, 1, 0, "Split terminal + live htop");
             menu.getMenu().add(0, 2, 1, "Command autocomplete");
             menu.getMenu().add(0, 3, 2, "Command search");
             menu.getMenu().add(0, 4, 3, "Termux sessions");
