@@ -74,11 +74,26 @@ jobs:
             printf '\\nnetworkTimeout=180000\\n' >> "$props"
           fi
           grep '^networkTimeout=' "$props"
-      - name: Build native Termux APK
+      - name: Compile native UI independently of bootstrap download
         working-directory: termux-app
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :app:assembleDebug --stacktrace
+          ./gradlew --no-daemon :app:compileDebugJavaWithJavac --stacktrace
+      - name: Build native Termux APK with bounded bootstrap retry
+        working-directory: termux-app
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if ./gradlew --no-daemon :app:assembleDebug --stacktrace; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Build attempt $attempt failed; retrying transient dependency download."
+              sleep "$((attempt * 12))"
+            fi
+          done
+          exit 1
       - name: Collect and verify APK
         shell: bash
         run: |
