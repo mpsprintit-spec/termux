@@ -90,3 +90,16 @@ capture. The actual `htop` appearance varies with phone screen width,
 keyboard visibility, `htop` version and Android restrictions on process/CPU
 metrics. A successful APK build does not establish that everything works on the
 target phone; verify it on a compatible installation before replacing data.
+
+## Clipboard safety fix (v0.6.2)
+
+- **Unsolicited OSC 52 clipboard writes are disabled** in the patched native
+  terminal emulator. A command, remote program, log, or escape sequence can no
+  longer copy directly into Android's clipboard without the user's action.
+- Manual **select → Copy** and normal **Paste** remain available through the
+  original Termux text selection UI and Android keyboard.
+- The build patch refuses to apply if the upstream OSC 52 handler or manual
+  Copy action changes, so this protection cannot silently disappear.
+- This addresses one concrete cause of unexpected clipboard changes. If copied
+  text still appears without user action, investigate IME, accessibility,
+  touch selection or other apps writing to the shared Android clipboard.
