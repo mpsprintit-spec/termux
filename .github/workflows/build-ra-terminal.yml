@@ -22,7 +22,7 @@ jobs:
     env:
       TERMUX_PACKAGE_VARIANT: apt-android-7
       TERMUX_SPLIT_APKS_FOR_DEBUG_BUILDS: '0'
-      TERMUX_APK_VERSION_TAG: valtheron-v0.6.1-debug
+      TERMUX_APK_VERSION_TAG: valtheron-v0.6.2-debug
     steps:
       - name: Clone RA Terminal repository
         uses: actions/checkout@v4
@@ -176,11 +176,11 @@ jobs:
           apk="$(find termux-app/app/build/outputs/apk/debug -name '*universal.apk' -print -quit)"
           test -n "$apk" && test -s "$apk"
           mkdir -p dist
-          cp "$apk" dist/ValTherOn_Terminal_v0.6.1_universal_debug.apk
-          (cd dist && sha256sum ValTherOn_Terminal_v0.6.1_universal_debug.apk > SHA256SUMS.txt)
+          cp "$apk" dist/ValTherOn_Terminal_v0.6.2_universal_debug.apk
+          (cd dist && sha256sum ValTherOn_Terminal_v0.6.2_universal_debug.apk > SHA256SUMS.txt)
       - name: Upload signed debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: ValTherOn-Terminal-v0.6.1-APK
+          name: ValTherOn-Terminal-v0.6.2-APK
           path: dist/*
           if-no-files-found: error
