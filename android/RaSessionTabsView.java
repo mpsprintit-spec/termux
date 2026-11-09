@@ -12,7 +12,7 @@ import android.widget.TextView;
 import com.termux.app.TermuxActivity;
 import com.termux.app.TermuxService;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
-import com.termux.app.termux.TermuxSession;
+import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.terminal.TerminalSession;
 
 import java.util.ArrayList;
