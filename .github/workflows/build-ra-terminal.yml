@@ -1,4 +1,4 @@
-name: Build RA Terminal APK
+name: Build ValTherOn Terminal APK
 on:
   workflow_dispatch:
   pull_request:
@@ -6,14 +6,12 @@ on:
     paths:
       - 'android/**'
       - 'apply_to_termux.py'
-      - 'install_nasa_solar.sh'
       - '.github/workflows/build-ra-terminal.yml'
   push:
     branches: [main]
     paths:
       - 'android/**'
       - 'apply_to_termux.py'
-      - 'install_nasa_solar.sh'
       - '.github/workflows/build-ra-terminal.yml'
 permissions:
   contents: read
@@ -24,16 +22,16 @@ jobs:
     env:
       TERMUX_PACKAGE_VARIANT: apt-android-7
       TERMUX_SPLIT_APKS_FOR_DEBUG_BUILDS: '0'
-      TERMUX_APK_VERSION_TAG: ra-terminal-v0.5-debug
+      TERMUX_APK_VERSION_TAG: valtheron-v0.6.2-debug
     steps:
       - name: Clone RA Terminal repository
         uses: actions/checkout@v4
       - name: Check required patch files
         run: |
           set -euo pipefail
-          for file in apply_to_termux.py android/RaTerminalChrome.java android/RaSystemHud.java android/RaLogoView.java android/RaSolarBackdropView.java android/RaNasaSolarView.java; do
+          for file in apply_to_termux.py android/RaTerminalChrome.java android/RaSystemHud.java android/RaSessionTabsView.java android/RaCommandPalette.java android/RaSplitLauncher.java; do
             if test ! -s "$file"; then
-              echo "::error::Missing $file. Extract/upload the complete repository RA Terminal v0.4 source into the repository first."
+              echo "::error::Missing required ValTherOn native UI source $file."
               exit 1
             fi
           done
@@ -64,11 +62,113 @@ jobs:
         run: |
           python3 apply_to_termux.py termux-app --check-only
           python3 apply_to_termux.py termux-app
-      - name: Build native Termux APK
+      - name: Allow larger Gradle wrapper download window
+        working-directory: termux-app
+        shell: bash
+        run: |
+          set -euo pipefail
+          props=gradle/wrapper/gradle-wrapper.properties
+          # Official Gradle CDN avoids an extra services.gradle.org redirect.
+          sed -i 's#services.gradle.org#downloads.gradle.org#g' "$props"
+          if grep -q '^networkTimeout=' "$props"; then
+            sed -i 's/^networkTimeout=.*/networkTimeout=180000/' "$props"
+          else
+            printf '\\nnetworkTimeout=180000\\n' >> "$props"
+          fi
+          grep '^networkTimeout=' "$props"
+      - name: Restore verified Gradle wrapper cache
+        id: gradle-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.gradle/wrapper/dists
+          key: valtheron-gradle-9.2.1-linux-v1
+      - name: Fetch Gradle distribution with network retry
+        working-directory: termux-app
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          for attempt in 1 2 3 4; do
+            if ./gradlew --version; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 4 ]; then
+              echo "Gradle distribution unavailable (attempt $attempt); retrying."
+              sleep "$((attempt * 15))"
+            fi
+          done
+          exit 1
+      - name: Save Gradle wrapper cache after successful download
+        if: steps.gradle-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.gradle/wrapper/dists
+          key: valtheron-gradle-9.2.1-linux-v1
+      - name: Fetch checksum-verified official Termux bootstrap archives
+        working-directory: termux-app
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/cpp
+          base='https://github.com/termux/termux-packages/releases/download/bootstrap-2026.02.12-r1%2Bapt.android-7'
+          api='https://api.github.com/repos/termux/termux-packages'
+          # Upstream build.gradle independently verifies these SHA-256 checksums.
+          for spec in \
+            'aarch64 ea2aeba8819e517db711f8c32369e89e7c52cee73e07930ff91185e1ab93f4f3' \
+            'arm a38f4d3b2f735f83be2bf54eff463e86dc32a3e2f9f861c1557c4378d249c018' \
+            'i686 f5bc0b025b9f3b420b5fcaeefc064f888f5f22a0d6fd7090f4aac0c33eb3555b' \
+            'x86_64 b7fd0f2e3a4de534be3144f9f91acc768630fc463eaf134ab2e64c545e834f7a'
+          do
+            read -r arch expected <<<"$spec"
+            name="bootstrap-$arch.zip"
+            target="app/src/main/cpp/$name"
+            if [[ -s "$target" ]] && echo "$expected  $target" | sha256sum -c --status; then
+              continue
+            fi
+            rm -f "$target"
+            if ! curl --fail --location --silent --show-error \
+                --retry 6 --retry-all-errors --retry-delay 5 \
+                --connect-timeout 20 --max-time 240 \
+                "$base/$name" --output "$target"; then
+              rm -f "$target"
+              echo "Direct official release download failed for $name; trying official GitHub API."
+              release_json="$(curl -fsSL --retry 5 --retry-all-errors \
+                -H 'Accept: application/vnd.github+json' \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                "$api/releases/tags/bootstrap-2026.02.12-r1%2Bapt.android-7")"
+              asset_id="$(printf '%s' "$release_json" | python3 -c \
+                'import json,sys; r=json.load(sys.stdin); n=sys.argv[1]; print(next((a["id"] for a in r.get("assets",[]) if a.get("name")==n), ""))' "$name")"
+              test -n "$asset_id"
+              curl --fail --location --silent --show-error \
+                --retry 6 --retry-all-errors --retry-delay 5 \
+                -H 'Accept: application/octet-stream' \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                "$api/releases/assets/$asset_id" --output "$target"
+            fi
+            echo "$expected  $target" | sha256sum -c -
+          done
+      - name: Compile native UI independently of bootstrap download
         working-directory: termux-app
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :app:assembleDebug --stacktrace
+          ./gradlew --no-daemon :app:compileDebugJavaWithJavac -x :app:downloadBootstraps --stacktrace
+      - name: Build native Termux APK with bounded bootstrap retry
+        working-directory: termux-app
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if ./gradlew --no-daemon :app:assembleDebug --stacktrace; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Build attempt $attempt failed; retrying transient dependency download."
+              sleep "$((attempt * 12))"
+            fi
+          done
+          exit 1
       - name: Collect and verify APK
         shell: bash
         run: |
@@ -76,11 +176,11 @@ jobs:
           apk="$(find termux-app/app/build/outputs/apk/debug -name '*universal.apk' -print -quit)"
           test -n "$apk" && test -s "$apk"
           mkdir -p dist
-          cp "$apk" dist/RA_Terminal_v0.5_universal_debug.apk
-          (cd dist && sha256sum RA_Terminal_v0.5_universal_debug.apk > SHA256SUMS.txt)
+          cp "$apk" dist/ValTherOn_Terminal_v0.6.2_universal_debug.apk
+          (cd dist && sha256sum ValTherOn_Terminal_v0.6.2_universal_debug.apk > SHA256SUMS.txt)
       - name: Upload signed debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: RA-Terminal-v0.5-NASA-APK
+          name: ValTherOn-Terminal-v0.6.2-APK
           path: dist/*
           if-no-files-found: error

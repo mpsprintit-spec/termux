@@ -1,137 +1,134 @@
 package com.termux.app.ra;
 
+import android.app.AlertDialog;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
-import android.view.View;
 import android.view.ViewGroup;
-import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
+
 import androidx.drawerlayout.widget.DrawerLayout;
+
 import com.termux.R;
 import com.termux.app.TermuxActivity;
 import com.termux.view.TerminalView;
 
 /**
- * Single-Activity native Termux UI. Original TerminalView/PTY is not reimplemented.
- * A native solar background is decorative and never intercepts terminal input.
+ * Minimal native ValTherOn chrome for the real Termux terminal.
+ * No video, no animated backgrounds, no replacement PTY or synthetic terminal.
  */
 public final class RaTerminalChrome {
-    private RaSolarBackdropView backdrop;
-    private RaNasaSolarView nasaSolar;
-    private final RaSystemHud hud;
-    private String animationMode="eco";
     private final TermuxActivity activity;
+    private final RaSessionTabsView tabs;
+    private final RaSystemHud hud;
 
-    private static int dp(TermuxActivity a, float n) { return (int)(n*a.getResources().getDisplayMetrics().density+.5f); }
+    private int dp(float n) {
+        return (int) (n * activity.getResources().getDisplayMetrics().density + .5f);
+    }
 
-    private static GradientDrawable bg(int color, int border) {
-        GradientDrawable shape = new GradientDrawable();
-        shape.setColor(color);shape.setCornerRadius(15f);
-        if (border!=0) shape.setStroke(1,border);
-        return shape;
+    private TextView label(String value, int sp, int color) {
+        TextView t = new TextView(activity);
+        t.setText(value);
+        t.setTextSize(sp);
+        t.setTextColor(color);
+        t.setGravity(Gravity.CENTER_VERTICAL);
+        t.setSingleLine(true);
+        return t;
     }
 
     public RaTerminalChrome(TermuxActivity activity, TerminalView terminal) {
-        this.activity=activity;
-        ViewGroup originalParent=(ViewGroup)terminal.getParent();
-        if (originalParent==null) throw new IllegalStateException("Termux TerminalView has no parent");
-        int originalIndex=originalParent.indexOfChild(terminal);
-        ViewGroup.LayoutParams outerParams=terminal.getLayoutParams();
-        originalParent.removeView(terminal);
+        this.activity = activity;
+        ViewGroup parent = (ViewGroup) terminal.getParent();
+        if (parent == null) throw new IllegalStateException("Original Termux terminal parent missing");
+        int originalIndex = parent.indexOfChild(terminal);
+        ViewGroup.LayoutParams originalParams = terminal.getLayoutParams();
+        parent.removeView(terminal);
 
-        LinearLayout shell=new LinearLayout(activity);
+        LinearLayout shell = new LinearLayout(activity);
         shell.setOrientation(LinearLayout.VERTICAL);
         shell.setBackgroundColor(Color.BLACK);
 
-        LinearLayout header=new LinearLayout(activity);
+        LinearLayout header = new LinearLayout(activity);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(activity,10),0,dp(activity,9),0);
-        header.setBackgroundColor(Color.rgb(2,4,8));
-        shell.addView(header,new LinearLayout.LayoutParams(-1,dp(activity,49)));
+        header.setPadding(dp(13), 0, dp(8), 0);
+        header.setBackgroundColor(0xff080b10);
+        shell.addView(header, new LinearLayout.LayoutParams(-1, dp(48)));
 
-        TextView menu=text("☰",20,0xffb7f2ff);
-        menu.setGravity(Gravity.CENTER);
-        header.addView(menu,new LinearLayout.LayoutParams(dp(activity,36),-1));
-        menu.setContentDescription("Open Termux session drawer");
-        menu.setOnClickListener(v -> {
-            DrawerLayout drawer=activity.findViewById(R.id.drawer_layout);
-            if (drawer!=null) drawer.openDrawer(Gravity.LEFT);
+        TextView brand = label(">_  ValTherOn", 16, 0xffe6edf5);
+        brand.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        brand.setContentDescription("ValTherOn native terminal");
+        header.addView(brand, new LinearLayout.LayoutParams(0, -1, 1));
+
+        TextView status = label("CPU --   RAM --", 11, 0xff5bcebd);
+        status.setTypeface(Typeface.MONOSPACE);
+        status.setContentDescription("Live performance; tap for detailed monitoring");
+        header.addView(status, new LinearLayout.LayoutParams(-2, -1));
+
+        // One-tap split monitor control: makes the htop pane discoverable.
+        TextView split = label("▤", 23, 0xff85bcdf);
+        split.setGravity(Gravity.CENTER);
+        split.setContentDescription("Open split terminal with live htop monitor");
+        header.addView(split, new LinearLayout.LayoutParams(dp(36), -1));
+        split.setOnClickListener(v -> new RaSplitLauncher(activity).launch());
+
+        TextView more = label("⋮", 24, 0xff96a4b5);
+        more.setGravity(Gravity.CENTER);
+        more.setContentDescription("More Termux options");
+        header.addView(more, new LinearLayout.LayoutParams(dp(37), -1));
+        more.setOnClickListener(v -> {
+            PopupMenu menu = new PopupMenu(activity, more);
+            menu.getMenu().add(0, 1, 0, "Split terminal + live htop");
+            menu.getMenu().add(0, 2, 1, "Command autocomplete");
+            menu.getMenu().add(0, 3, 2, "Command search");
+            menu.getMenu().add(0, 4, 3, "Termux sessions");
+            menu.setOnMenuItemClickListener(item -> {
+                if (item.getItemId() == 1) new RaSplitLauncher(activity).launch();
+                else if (item.getItemId() == 2) new RaCommandPalette(activity).show(true);
+                else if (item.getItemId() == 3) new RaCommandPalette(activity).show(false);
+                else if (item.getItemId() == 4) {
+                    DrawerLayout drawer = activity.findViewById(R.id.drawer_layout);
+                    if (drawer != null) drawer.openDrawer(Gravity.LEFT);
+                }
+                return true;
+            });
+            menu.show();
         });
 
-        RaLogoView logo = new RaLogoView(activity);
-        header.addView(logo,new LinearLayout.LayoutParams(dp(activity,64),-1));
+        tabs = new RaSessionTabsView(activity);
+        shell.addView(tabs, new LinearLayout.LayoutParams(-1, dp(46)));
 
-        LinearLayout label=new LinearLayout(activity);
-        label.setOrientation(LinearLayout.VERTICAL);
-        label.setGravity(Gravity.CENTER_VERTICAL);
-        TextView name=text("RA TERMINAL",14,Color.WHITE);
-        name.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
-        TextView sub=text("PERSONAL  •  NATIVE TERMUX",8,0xff73b8cf);
-        label.addView(name);label.addView(sub);
-        header.addView(label,new LinearLayout.LayoutParams(0,-1,1));
-        TextView status=text("● LIVE",9,0xff69f1d4);
-        status.setPadding(dp(activity,7),dp(activity,5),dp(activity,7),dp(activity,5));
-        status.setBackground(bg(0xff0a1e27,0xff168aa7));
-        header.addView(status);
-        TextView perf=text("ECO",9,0xff8beeff);
-        perf.setPadding(dp(activity,5),dp(activity,5),0,dp(activity,5));
-        header.addView(perf);
-        perf.setContentDescription("Change neon background animation performance");
-        perf.setOnClickListener(v -> {
-            animationMode="eco".equals(animationMode)?"flow":("flow".equals(animationMode)?"off":"eco");
-            perf.setText(animationMode.toUpperCase(java.util.Locale.US));
-            backdrop.setAnimationMode(animationMode);
-            nasaSolar.setAnimationMode(animationMode);
-        });
+        // A single real TerminalView remains owned by the original TermuxActivity.
+        terminal.setBackgroundColor(Color.BLACK);
+        shell.addView(terminal, new LinearLayout.LayoutParams(-1, 0, 1));
+        parent.addView(shell, originalIndex, originalParams);
 
-        FrameLayout scene=new FrameLayout(activity);
-        shell.addView(scene,new LinearLayout.LayoutParams(-1,0,1));
-        backdrop=new RaSolarBackdropView(activity);
-        scene.addView(backdrop,new FrameLayout.LayoutParams(-1,-1));
-        nasaSolar = new RaNasaSolarView(activity);
-        nasaSolar.setReadyListener(ready -> backdrop.setVisibility(ready ? View.INVISIBLE : View.VISIBLE));
-        scene.addView(nasaSolar,new FrameLayout.LayoutParams(-1,-1));
-
-        LinearLayout foreground=new LinearLayout(activity);
-        final boolean compact=activity.getResources().getConfiguration().screenWidthDp<520;
-        foreground.setOrientation(compact?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
-        scene.addView(foreground,new FrameLayout.LayoutParams(-1,-1));
-
-        terminal.setBackgroundColor(Color.TRANSPARENT);
-        hud=new RaSystemHud(activity);
-        if(compact){
-            terminal.setLayoutParams(new LinearLayout.LayoutParams(-1,0,1));
-            foreground.addView(terminal);
-            LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,dp(activity,65));
-            hp.setMargins(dp(activity,4),0,dp(activity,4),dp(activity,2));
-            foreground.addView(hud,hp);
-        }else{
-            terminal.setLayoutParams(new LinearLayout.LayoutParams(0,-1,1));
-            foreground.addView(terminal);
-            LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(dp(activity,112),-1);
-            hp.setMargins(dp(activity,2),dp(activity,7),dp(activity,5),dp(activity,7));
-            foreground.addView(hud,hp);
-        }
-
-        originalParent.addView(shell,originalIndex,outerParams);
-        status.setContentDescription("Toggle live resource panels");
-        status.setOnClickListener(v -> {
-            boolean showing = hud.getVisibility() == View.VISIBLE;
-            hud.setVisibility(showing ? View.GONE : View.VISIBLE);
-            status.setText(showing ? "○ HUD" : "● LIVE");
-        });
+        hud = new RaSystemHud(activity);
+        hud.setMetricsListener((cpu, ram) -> status.setText(cpu + "   " + ram));
+        status.setOnClickListener(v -> showDetails());
         terminal.requestFocus();
     }
 
-    private TextView text(String s,int size,int color) {
-        TextView t=new TextView(activity);t.setText(s);t.setTextSize(size);t.setTextColor(color);
-        t.setFontFeatureSettings("tnum");return t;
+    private void showDetails() {
+        RaSystemHud details = new RaSystemHud(activity);
+        LinearLayout content = new LinearLayout(activity);
+        content.setBackgroundColor(0xff080b10);
+        content.setPadding(dp(12), dp(8), dp(12), dp(8));
+        content.addView(details, new LinearLayout.LayoutParams(-1, dp(360)));
+        AlertDialog dialog = new AlertDialog.Builder(activity)
+            .setTitle("Performance")
+            .setView(content)
+            .setPositiveButton("Close", (d, which) -> {})
+            .create();
+        dialog.setOnShowListener(d -> details.resume());
+        dialog.setOnDismissListener(d -> details.pause());
+        dialog.show();
     }
-    public void resume(){ backdrop.resume();nasaSolar.resume();hud.resume(); }
-    public void pause(){ hud.pause();nasaSolar.pause();backdrop.pause(); }
-    public void destroy(){ hud.pause();nasaSolar.release();backdrop.release(); }
+
+    public void refreshTabs() { tabs.refresh(); }
+    public void resume() { hud.resume(); refreshTabs(); }
+    public void pause() { hud.pause(); }
+    public void destroy() { hud.pause(); hud.setMetricsListener(null); }
 }

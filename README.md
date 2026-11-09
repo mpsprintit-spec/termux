@@ -1,65 +1,105 @@
-# RA Terminal
+# ValTherOn Terminal — Native Android / Termux
 
-**Termux asli dengan antarmuka grafis pribadi RA** — tetap satu aplikasi Android dan satu Activity. Terminal Linux asli/PTY tidak diganti oleh terminal palsu.
+A minimal, hacker-style Android terminal built by **patching the official Termux
+application**, not by replacing it with a browser or a fake terminal emulator.
 
-Fitur RA Terminal v0.5:
-- Logo RA vektor (di header dan launcher).
-- Latar hitam dengan **latar NASA SDO 171 Å dari video lokal (jika tersedia), dengan tiga gelombang transisi cahaya; latar matahari native lama menjadi cadangan**, plus gelombang biru tipis; seluruhnya berada di belakang UI. Video diputar menggunakan TextureView dan MediaPlayer Android di belakang TerminalView asli; tidak memakai Termux:GUI, browser, atau tmux.
-- Panel CPU/APP CPU, RAM, storage, network, dan PID/heap membaca data Android yang dapat diakses. Nilai tidak tersedia tidak diganti angka rekaan.
-- Layar terminal, tulisan, tombol, dan panel tetap diam.
-- Panel dapat disembunyikan dari tombol LIVE untuk mendapatkan area mengetik lebih lebar.
+## Design direction (v0.6.1, native Android)
 
-## Build APK
+The native UI follows the second approved reference design:
 
-Source patch **sudah ada di repository ini**. Workflow mengambil Termux resmi dari commit `8629e632fcb95da272221be327db653fb24befe9` dan menerapkan patch dengan `apply_to_termux.py`.
+- Black, flat workspace; no solar video, plasma animation, or decorative backdrop.
+- Small **ValTherOn** header with real CPU/app CPU and device RAM percentages.
+- Compact, half-rounded, horizontally scrollable session tabs.
+- Real session names (no session indices) and blue underline for the active tab.
+- Native `+` button to open a **real Termux session**.
+- Tap to switch sessions and long-press to rename through the existing Termux client.
+- Original `TerminalView`, `TermuxService`, shell/PTY, bootstrap, Android keyboard,
+  Termux extra-keys, Git, Go, and terminal applications remain in place.
+- The optional session drawer remains reachable using the header menu.
 
-Lihat **[GitHub Actions](https://github.com/mpsprintit-spec/termux/actions/workflows/build-ra-terminal.yml)**. Build otomatis dipicu saat kode patch berubah; kamu juga dapat memilih **Run workflow**.
+## Features in this branch
 
-Jika build sukses, buka run sukses → **Artifacts** → `RA-Terminal-v0.5-APK`, lalu ekstrak ZIP untuk memperoleh `RA_Terminal_v0.5_universal_debug.apk` dan checksum SHA256.
+1. **Horizontal session tabs**: compact half-rounded tabs, no numbers, native scroll,
+   tap-to-switch, long press to rename and **+** to create a real Termux session.
+2. **Live split terminal**: tap the small **▤** header control or select
+   **Split terminal + live htop** in the menu. A new Termux PTY opens two
+   interactive `tmux` panes: the **upper pane is a shell**, and the **lower pane
+   starts real `htop` automatically**, reading the accessible CPU, RAM and
+   process statistics from the Android device. The lower pane initially receives
+   58% of the terminal rows; tmux responds to keyboard/terminal resizing.
+   If `tmux` or `htop` is absent, the app asks before installing the missing
+   packages via `pkg` in a fresh session. No commands are injected into other
+   sessions. If `htop` quits, the lower pane becomes a shell instead of
+   disappearing. This is a real **tmux-based** split; it is not two separate
+   native Android `TerminalView` widgets or a fake dashboard.
+3. **Command autocomplete**: on-demand completion palette against the real
+   executable names in the current Termux prefix, plus shell commands. Filtering
+   is live; inserting a selected suggestion sends **no Enter key**. Native Bash,
+   Fish, and Zsh completion remain available via the Termux extra-key Tab.
+4. **Command search**: case-insensitive search of available Bash, Zsh, or Fish
+   history files. The result is inserted without running it; history with
+   common sensitive-key patterns is excluded. Existing command buffers are not
+   silently reset or rewritten.
+5. **Performance monitor**: CPU/app CPU and RAM in the header; tap for more
+   real device metrics, showing unavailable readings as unavailable instead of
+   invented values.
 
-> **PENTING:** APK memakai signing key debug Termux yang tidak tepercaya untuk produksi. Jangan hapus Termux lama sebelum data dicadangkan, APK selesai dibangun, dan diuji instalasi serta fungsi shellnya. Source dan pipeline ini adalah eksperimen; build yang hijau pun belum membuktikan kompatibilitas penuh pada perangkatmu.
+All optional tools are accessible from the small ⋮ menu; existing
+Termux extra keys, Android keyboard, drawer, shell packages, and terminal
+emulation continue to use the original upstream implementation.
 
+## Native components
 
-## NASA SDO langsung di Ra Terminal (v0.5)
+- `android/RaTerminalChrome.java`: header, menu, native tabs, and original terminal.
+- `android/RaSessionTabsView.java`: real horizontally scrolling Termux sessions.
+- `android/RaSplitLauncher.java`: isolated fresh PTY + tmux split.
+- `android/RaCommandPalette.java`: command lookup and autocomplete.
+- `android/RaSystemHud.java`: genuine Android metrics.
+- `apply_to_termux.py`: stable upstream source patch and session-change notifications.
+- `android/ra_launcher.xml`: minimal terminal-prompt launcher mark.
 
-Integrasi dilakukan pada **RaTerminalChrome** yang sudah ada, bukan aplikasi baru.
-Shell Linux/PT Y, file HOME, package manager, tombol ekstra, dan sesi Termux
-tetap memakai implementasi Termux asli.
+Pinned upstream revision: `8629e632fcb95da272221be327db653fb24befe9`.
 
-* Matahari ditempatkan sekitar 45–50% lebar layar, agak jauh dan di tengah latar hitam.
-* Video NASA memakai kecepatan **1×**; tidak ada animasi panning atau pergerakan kamera buatan.
-* Di akhir rekaman terjadi tiga gelombang cahaya halus: redup–terang × 3;
-  crossfade antar dua video ditempatkan di gelombang kedua.
-* Tidak ada permintaan jaringan dari dalam aplikasi. Video diletakkan di HOME Termux;
-  jika belum tersedia atau decoder gagal, latar native RA lama tetap berfungsi.
-* MediaPlayer dihentikan ketika Activity tidak aktif dan dilepas saat Activity dihancurkan.
+## Build and test
 
-### Menyiapkan video NASA satu kali dari shell Ra Terminal
+The GitHub Actions workflow `Build ValTherOn Terminal APK` validates and
+applies the patch, compiles the native Java sources, then builds a **real
+Termux debug APK with verified official bootstrap archives**. It publishes
+`ValTherOn-Terminal-v0.6.1-APK` with SHA-256 checksums if and only if all steps
+succeed. CI does not prove device-specific Android runtime compatibility.
 
-Setelah APK v0.5 selesai dibangun dan terinstal, salin skrip
-`install_nasa_solar.sh` dari repo ini ke Termux lalu jalankan:
+A valid APK requires a successful `assembleDebug`, complete bootstrap
+downloads, correct signature, verified SHA256, and manual device testing of
+keyboard/sessions/tmux/monitoring before any production roll-out.
 
-```sh
-pkg install curl ffmpeg
-bash install_nasa_solar.sh
-```
+## Important install/safety notes
 
-Skrip mengunduh rekaman NASA SVS 4246 (*The Big Sunspot of 2014*) jika tidak
-diberi nama file lokal, mengubahnya menjadi biru 720p MP4 tanpa audio, dan
-menyimpannya ke `$HOME/.ra-terminal/solar.mp4`. Kamu juga dapat memberi file
-rekaman yang sudah tersimpan sebagai argumen:
-`bash install_nasa_solar.sh /sdcard/Download/rekaman.webm`.
+- The app retains the original Termux package ID and the pinned Termux
+  debug key. It may **conflict with existing Termux installations** signed
+  with another key. Do not uninstall your working Termux or delete HOME to
+  test a build.
+- The project does not touch Horizon's repository.
+- The changes remain on a feature branch until installation and runtime testing.
+- Command palette is intentionally *on-demand* rather than intercepting
+  and rewriting arbitrary shell input or full-screen app keystrokes.
 
-Jika belum menjalankan skrip, Ra Terminal tetap berjalan dengan latar
-sebelumnya. Video tidak otomatis disertakan di APK.
+## Visual and runtime limits
 
-### Batasan dan keamanan
+The previous example screenshot was a design mockup, not a real application
+capture. The actual `htop` appearance varies with phone screen width,
+keyboard visibility, `htop` version and Android restrictions on process/CPU
+metrics. A successful APK build does not establish that everything works on the
+target phone; verify it on a compatible installation before replacing data.
 
-NASA SDO bersifat observasi asli dalam bentuk timelapse, bukan bola 3D bebas
-berputar. Sumber video bisa memuat perubahan teknis yang tidak dapat dihilangkan
-oleh transisi. Kehalusan transisi tiga gelombang, dekoder video ganda, dan
-performa perangkat harus dinilai di HP setelah APK diuji.
+## Clipboard safety fix (v0.6.2)
 
-Build APK debug mungkin menggunakan sertifikat berbeda pada run GitHub Actions.
-Jangan menghapus aplikasi/data Termux yang sekarang sampai APK pengganti telah
-diverifikasi dan ada cadangan data. Proyek ini tidak menyentuh repositori Horizon.
+- **Unsolicited OSC 52 clipboard writes are disabled** in the patched native
+  terminal emulator. A command, remote program, log, or escape sequence can no
+  longer copy directly into Android's clipboard without the user's action.
+- Manual **select → Copy** and normal **Paste** remain available through the
+  original Termux text selection UI and Android keyboard.
+- The build patch refuses to apply if the upstream OSC 52 handler or manual
+  Copy action changes, so this protection cannot silently disappear.
+- This addresses one concrete cause of unexpected clipboard changes. If copied
+  text still appears without user action, investigate IME, accessibility,
+  touch selection or other apps writing to the shared Android clipboard.

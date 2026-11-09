@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Patch pinned official Termux source with RA Terminal v0.5 single-screen UI."""
+"""Patch pinned official Termux source with native ValTherOn compact tabs."""
 from pathlib import Path
 import argparse
 import shutil
@@ -16,9 +16,11 @@ manifest=repo/'app/src/main/AndroidManifest.xml'
 classes=repo/'app/src/main/java/com/termux/app/ra'
 drawable=repo/'app/src/main/res/drawable/ra_launcher.xml'
 palette=repo/'terminal-emulator/src/main/java/com/termux/terminal/TerminalColorScheme.java'
-if not activity.is_file() or not manifest.is_file() or not palette.is_file() or not (repo/'app/build.gradle').is_file():
+session_client=repo/'app/src/main/java/com/termux/app/terminal/TermuxTerminalSessionActivityClient.java'
+emulator=repo/'terminal-emulator/src/main/java/com/termux/terminal/TerminalEmulator.java'
+if not activity.is_file() or not manifest.is_file() or not palette.is_file() or not session_client.is_file() or not emulator.is_file() or not (repo/'app/build.gradle').is_file():
     raise SystemExit(f'ERROR: invalid Termux source tree: {repo}')
-for name in ('RaTerminalChrome.java','RaSystemHud.java','RaLogoView.java','RaSolarBackdropView.java','RaNasaSolarView.java','ra_launcher.xml'):
+for name in ('RaTerminalChrome.java','RaSystemHud.java','RaSessionTabsView.java','RaCommandPalette.java','RaSplitLauncher.java','ra_launcher.xml'):
     source=root/'android'/name
     if not source.is_file():
         raise SystemExit(f'ERROR: missing RA Terminal source file: {source}')
@@ -40,6 +42,12 @@ insertions=[
      '        if (mRaChrome != null) mRaChrome.pause();\n        super.onStop();'),
     ('        super.onDestroy();',
      '        if (mRaChrome != null) { mRaChrome.destroy(); mRaChrome = null; }\n        super.onDestroy();'),
+    ('        mTermuxService.setTermuxTerminalSessionClient(mTermuxTerminalSessionActivityClient);',
+     '        mTermuxService.setTermuxTerminalSessionClient(mTermuxTerminalSessionActivityClient);\n        refreshValTherOnTabs();'),
+    ('    public void termuxSessionListNotifyUpdated() {',
+     '    public void refreshValTherOnTabs() { if (mRaChrome != null) mRaChrome.refreshTabs(); }\n\n    public void termuxSessionListNotifyUpdated() {'),
+    ('        mTermuxSessionListViewController.notifyDataSetChanged();',
+     '        mTermuxSessionListViewController.notifyDataSetChanged();\n        refreshValTherOnTabs();'),
 ]
 for old,new in insertions:
     if s.count(old)!=1:
@@ -53,7 +61,7 @@ block=m[start:end+1]
 replacements=[
     ('android:icon="@mipmap/ic_launcher"','android:icon="@drawable/ra_launcher"'),
     ('android:roundIcon="@mipmap/ic_launcher_round"','android:roundIcon="@drawable/ra_launcher"'),
-    ('android:label="@string/application_name"','android:label="RA Terminal"'),
+    ('android:label="@string/application_name"','android:label="ValTherOn Terminal"'),
 ]
 for old,new in replacements:
     if block.count(old)!=1:
@@ -66,7 +74,7 @@ end=m.find('>',start)
 block=m[start:end+1]
 if block.count('android:label="@string/application_name"')!=1:
     raise SystemExit('ERROR: missing activity label')
-block=block.replace('android:label="@string/application_name"','android:label="RA Terminal"',1)
+block=block.replace('android:label="@string/application_name"','android:label="ValTherOn Terminal"',1)
 m=m[:start]+block+m[end+1:]
 # Accent palette changes only default ANSI hues. User colors.properties remains supported.
 q=palette.read_text(encoding='utf-8')
@@ -83,17 +91,48 @@ palette_edits=[
 for old,new in palette_edits:
     if q.count(old)!=1: raise SystemExit(f'ERROR: missing palette anchor {old}')
     q=q.replace(old,new,1)
+client_text=session_client.read_text(encoding='utf-8')
+session_anchor='        checkAndScrollToSession(session);\n        updateBackgroundColor();'
+if client_text.count(session_anchor)!=1:
+    raise SystemExit('ERROR: Termux session switch anchor has changed upstream')
+client_text=client_text.replace(session_anchor,session_anchor+'\n        mActivity.refreshValTherOnTabs();',1)
+# Terminal-emitted OSC 52 clipboard writes are disabled: users should never
+# lose their Android clipboard due to arbitrary shell/program output. Explicit
+# selection-menu Copy and Paste retain their original Termux implementation.
+osc52_from='''            case 52: // Manipulate Selection Data. Skip the optional first selection parameter(s).
+                int startIndex = textParameter.indexOf(";") + 1;
+                try {
+                    String clipboardText = new String(Base64.decode(textParameter.substring(startIndex), Base64.DEFAULT), StandardCharsets.UTF_8);
+                    mSession.onCopyTextToClipboard(clipboardText);
+                } catch (Exception e) {
+                    Logger.logError(mClient, LOG_TAG, "OSC Manipulate selection, invalid string '" + textParameter + "'");
+                }
+                break;'''
+osc52_to='''            case 52: // ValTherOn: reject unsolicited terminal-output clipboard writes.
+                // Clipboard copy is allowed only through explicit UI Copy actions.
+                // OSC 52 can be emitted by untrusted programs, logs, remote shells
+                // and even a printed file; silently changing clipboard is unsafe.
+                break;'''
+e=emulator.read_text(encoding='utf-8')
+if e.count(osc52_from)!=1:
+    raise SystemExit('ERROR: Termux OSC 52 clipboard handler changed upstream')
+e=e.replace(osc52_from,osc52_to,1)
+# Retain manual copy from the original selection controller; do not change it.
+selection=repo/'terminal-view/src/main/java/com/termux/view/textselection/TextSelectionCursorController.java'
+if not selection.is_file() or 'terminalView.mTermSession.onCopyTextToClipboard(selectedText);' not in selection.read_text(encoding='utf-8'):
+    raise SystemExit('ERROR: explicit Copy action missing upstream')
+
 if args.check_only:
-    print('PASS: all Termux Activity and manifest source anchors are compatible.')
+    print('PASS: Termux source anchors, OSC 52 clipboard guard, and manual copy compatibility are valid.')
     sys.exit(0)
 classes.mkdir(parents=True,exist_ok=True)
 drawable.parent.mkdir(parents=True,exist_ok=True)
-for filename in ('RaTerminalChrome.java','RaSystemHud.java','RaLogoView.java','RaSolarBackdropView.java','RaNasaSolarView.java'):
+for filename in ('RaTerminalChrome.java','RaSystemHud.java','RaSessionTabsView.java','RaCommandPalette.java','RaSplitLauncher.java'):
     shutil.copy2(root/'android'/filename,classes/filename)
 shutil.copy2(root/'android/ra_launcher.xml',drawable)
-for original,text in ((activity,s),(manifest,m),(palette,q)):
+for original,text in ((activity,s),(manifest,m),(palette,q),(session_client,client_text),(emulator,e)):
     backup=original.with_suffix(original.suffix+'.ra-original')
     if not backup.exists():
         backup.write_text(original.read_text(encoding='utf-8'),encoding='utf-8')
     original.write_text(text,encoding='utf-8')
-print('SUCCESS: applied RA Terminal v0.5 patch to',repo)
+print('SUCCESS: applied ValTherOn compact-tabs patch to',repo)

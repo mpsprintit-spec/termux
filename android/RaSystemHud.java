@@ -21,6 +21,10 @@ import java.util.Locale;
 
 /** Real local Android metrics. Never generate dummy values if readings are unavailable. */
 public final class RaSystemHud extends View {
+    public interface MetricsListener { void onMetrics(String cpu, String ram); }
+    private MetricsListener metricsListener;
+    public void setMetricsListener(MetricsListener listener) { this.metricsListener = listener; }
+
     private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Handler handler=new Handler(Looper.getMainLooper());
     private final Context context;
@@ -36,7 +40,7 @@ public final class RaSystemHud extends View {
     private boolean cpuWholeSystem=false;
     private final float[] cpuSamples=new float[25];
     private int cpuCount=0;
-    private final Runnable ticker=new Runnable(){@Override public void run(){if(!running)return;sample();invalidate();handler.postDelayed(this,PERIOD);}};
+    private final Runnable ticker=new Runnable(){@Override public void run(){if(!running)return;sample();invalidate();if(metricsListener!=null)metricsListener.onMetrics((cpuWholeSystem?"CPU ":"APP ")+pct(cpuPercent),"RAM "+pct(ramPercent));handler.postDelayed(this,PERIOD);}};
 
     public RaSystemHud(Context context){super(context);this.context=context;setContentDescription("Live CPU, memory, storage and network statistics");}
     public void resume(){if(running)return;running=true;handler.post(ticker);}
