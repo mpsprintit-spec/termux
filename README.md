@@ -1,65 +1,59 @@
-# RA Terminal
+# ValTherOn Terminal — Native Android / Termux
 
-**Termux asli dengan antarmuka grafis pribadi RA** — tetap satu aplikasi Android dan satu Activity. Terminal Linux asli/PTY tidak diganti oleh terminal palsu.
+A minimal, hacker-style Android terminal built by **patching the official Termux
+application**, not by replacing it with a browser or a fake terminal emulator.
 
-Fitur RA Terminal v0.5:
-- Logo RA vektor (di header dan launcher).
-- Latar hitam dengan **latar NASA SDO 171 Å dari video lokal (jika tersedia), dengan tiga gelombang transisi cahaya; latar matahari native lama menjadi cadangan**, plus gelombang biru tipis; seluruhnya berada di belakang UI. Video diputar menggunakan TextureView dan MediaPlayer Android di belakang TerminalView asli; tidak memakai Termux:GUI, browser, atau tmux.
-- Panel CPU/APP CPU, RAM, storage, network, dan PID/heap membaca data Android yang dapat diakses. Nilai tidak tersedia tidak diganti angka rekaan.
-- Layar terminal, tulisan, tombol, dan panel tetap diam.
-- Panel dapat disembunyikan dari tombol LIVE untuk mendapatkan area mengetik lebih lebar.
+## Design direction (v0.6, experimental)
 
-## Build APK
+The native UI follows the second approved reference design:
 
-Source patch **sudah ada di repository ini**. Workflow mengambil Termux resmi dari commit `8629e632fcb95da272221be327db653fb24befe9` dan menerapkan patch dengan `apply_to_termux.py`.
+- Black, flat workspace; no solar video, plasma animation, or decorative backdrop.
+- Small **ValTherOn** header with real CPU/app CPU and device RAM percentages.
+- Compact, half-rounded, horizontally scrollable session tabs.
+- Real session names (no session indices) and blue underline for the active tab.
+- Native `+` button to open a **real Termux session**.
+- Tap to switch sessions and long-press to rename through the existing Termux client.
+- Original `TerminalView`, `TermuxService`, shell/PTY, bootstrap, Android keyboard,
+  Termux extra-keys, Git, Go, and terminal applications remain in place.
+- The optional session drawer remains reachable using the header menu.
 
-Lihat **[GitHub Actions](https://github.com/mpsprintit-spec/termux/actions/workflows/build-ra-terminal.yml)**. Build otomatis dipicu saat kode patch berubah; kamu juga dapat memilih **Run workflow**.
+The split-pane output in the *reference image* is a visual target and is **not
+yet implemented as a new native split feature** in this branch. Use `tmux`
+inside Termux for real split panes in the meantime. Smart autocomplete and
+command search also remain future work. Nothing in the UI fabricates terminal
+output or starts `htop` automatically.
 
-Jika build sukses, buka run sukses → **Artifacts** → `RA-Terminal-v0.5-APK`, lalu ekstrak ZIP untuk memperoleh `RA_Terminal_v0.5_universal_debug.apk` dan checksum SHA256.
+## Native components
 
-> **PENTING:** APK memakai signing key debug Termux yang tidak tepercaya untuk produksi. Jangan hapus Termux lama sebelum data dicadangkan, APK selesai dibangun, dan diuji instalasi serta fungsi shellnya. Source dan pipeline ini adalah eksperimen; build yang hijau pun belum membuktikan kompatibilitas penuh pada perangkatmu.
+- `android/RaTerminalChrome.java`: simple header / session strip / original terminal.
+- `android/RaSessionTabsView.java`: native Android scrollable session tabs.
+- `android/RaSystemHud.java`: live device stats (when available).
+- `apply_to_termux.py`: applies the patch to the pinned upstream source,
+  including session-change notifications, without rebuilding the terminal engine.
 
+The pinned upstream `termux-app` revision is
+`8629e632fcb95da272221be327db653fb24befe9`.
 
-## NASA SDO langsung di Ra Terminal (v0.5)
+## Build
 
-Integrasi dilakukan pada **RaTerminalChrome** yang sudah ada, bukan aplikasi baru.
-Shell Linux/PT Y, file HOME, package manager, tombol ekstra, dan sesi Termux
-tetap memakai implementasi Termux asli.
+Run GitHub Actions workflow `Build ValTherOn Terminal APK` on the feature
+branch (or its pull request). It checks out the pinned Termux source, validates
+the source anchors, applies the custom UI patch, compiles a debug Android APK,
+and publishes an artifact named `ValTherOn-Terminal-v0.6-APK`.
 
-* Matahari ditempatkan sekitar 45–50% lebar layar, agak jauh dan di tengah latar hitam.
-* Video NASA memakai kecepatan **1×**; tidak ada animasi panning atau pergerakan kamera buatan.
-* Di akhir rekaman terjadi tiga gelombang cahaya halus: redup–terang × 3;
-  crossfade antar dua video ditempatkan di gelombang kedua.
-* Tidak ada permintaan jaringan dari dalam aplikasi. Video diletakkan di HOME Termux;
-  jika belum tersedia atau decoder gagal, latar native RA lama tetap berfungsi.
-* MediaPlayer dihentikan ketika Activity tidak aktif dan dilepas saat Activity dihancurkan.
+The build artifact and SHA256 checksums should only be treated as usable once
+the GitHub Actions build has succeeded. Even a successful build is not a
+substitute for testing on the target Android device.
 
-### Menyiapkan video NASA satu kali dari shell Ra Terminal
+## Safety
 
-Setelah APK v0.5 selesai dibangun dan terinstal, salin skrip
-`install_nasa_solar.sh` dari repo ini ke Termux lalu jalankan:
+**Do not uninstall or overwrite an existing Termux installation to test this.**
 
-```sh
-pkg install curl ffmpeg
-bash install_nasa_solar.sh
-```
+The APK currently uses the original Termux package identity and a
+non-production debug signing key. Installing it over another Termux-signed
+variant can fail, or require destructive actions. Keep your current HOME,
+bootstrap, and repositories backed up. Do not alter Android package identity
+without a dedicated bootstrap/package-compatibility migration.
 
-Skrip mengunduh rekaman NASA SVS 4246 (*The Big Sunspot of 2014*) jika tidak
-diberi nama file lokal, mengubahnya menjadi biru 720p MP4 tanpa audio, dan
-menyimpannya ke `$HOME/.ra-terminal/solar.mp4`. Kamu juga dapat memberi file
-rekaman yang sudah tersimpan sebagai argumen:
-`bash install_nasa_solar.sh /sdcard/Download/rekaman.webm`.
-
-Jika belum menjalankan skrip, Ra Terminal tetap berjalan dengan latar
-sebelumnya. Video tidak otomatis disertakan di APK.
-
-### Batasan dan keamanan
-
-NASA SDO bersifat observasi asli dalam bentuk timelapse, bukan bola 3D bebas
-berputar. Sumber video bisa memuat perubahan teknis yang tidak dapat dihilangkan
-oleh transisi. Kehalusan transisi tiga gelombang, dekoder video ganda, dan
-performa perangkat harus dinilai di HP setelah APK diuji.
-
-Build APK debug mungkin menggunakan sertifikat berbeda pada run GitHub Actions.
-Jangan menghapus aplikasi/data Termux yang sekarang sampai APK pengganti telah
-diverifikasi dan ada cadangan data. Proyek ini tidak menyentuh repositori Horizon.
+The repository's `main` branch remains at RA Terminal v0.5 until this change
+is reviewed and validated. This feature branch is deliberately isolated.
